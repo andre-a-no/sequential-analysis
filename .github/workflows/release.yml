@@ -42,6 +42,11 @@ jobs:
           grep -q "\"version\": \"${{ steps.version.outputs.version }}\"" ts/package.json
       - name: the changelog has a dated section for this version
         run: grep -q "^## ${{ steps.version.outputs.version }} — [0-9]" CHANGELOG.md
+      - name: nothing in the changelog is still unreleased (a tag on a commit with unreleased work would ship it unlisted)
+        run: |
+          if grep -q "^## Unreleased" CHANGELOG.md; then
+            echo "CHANGELOG.md has an Unreleased section: fold it into this version, or tag an earlier commit"; exit 1
+          fi
       - name: CITATION.cff names this version and the changelog's date (Zenodo takes the metadata from it)
         run: |
           version="${{ steps.version.outputs.version }}"
