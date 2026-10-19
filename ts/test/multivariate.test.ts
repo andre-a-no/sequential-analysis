@@ -50,7 +50,7 @@ test("cross_correlation and dynamic_regression check their arguments and states"
   assert.throws(() => new DynamicRegression(["y"]), RangeError);
   assert.throws(() => new DynamicRegression(["x"], 1.5), RangeError);
   const d = new DynamicRegression(["x"]);
-  assert.throws(() => d.decodeState({ ...d.initialState(), covariance: [[1, 0.5], [0, 1]] }), /symmetric/);
+  assert.throws(() => d.decodeState({ ...d.initialState(), precision: [[1, 0.5], [0, 1]] }), /symmetric/);
 });
 
 test("lagged waits for the past, then steps the inner procedure; refuses inconsistent states", () => {

@@ -416,7 +416,7 @@ register("cross_correlation", "1", (c) => CrossCorrelation.fromConfig(c));
 // ------------------------------------------------------------------- regression, drifting coefficients
 
 type DynamicRegressionState = {
-  n: number; mean: number[]; covariance: number[][]; dof: number; sum_squares: number; log_likelihood: number; comp: number;
+  n: number; mean: number[]; precision: number[][]; dof: number; sum_squares: number; log_likelihood: number; comp: number;
 };
 
 /** Regression of y on `regressors` with coefficients that drift (discounted dynamic linear model); see multivariate.py. */
@@ -459,8 +459,8 @@ export class DynamicRegression extends BaseProcedure {
 
   initialState(): DynamicRegressionState {
     const k = this.k;
-    const cov = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => (i === j ? this.priorScale : 0.0)));
-    return { n: 0, mean: Array.from({ length: k }, () => 0.0), covariance: cov, dof: 0.0, sum_squares: 0.0, log_likelihood: 0.0, comp: 0.0 };
+    const prec = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => (i === j ? 1.0 / this.priorScale : 0.0)));
+    return { n: 0, mean: Array.from({ length: k }, () => 0.0), precision: prec, dof: 0.0, sum_squares: 0.0, log_likelihood: 0.0, comp: 0.0 };
   }
 
   step(state: State, x: StatInput, _rng: SplitMix64 | null = null): [State, Output] {
@@ -468,9 +468,10 @@ export class DynamicRegression extends BaseProcedure {
     const k = this.k;
     const f = [...(this.intercept ? [1.0] : []), ...this.regressors.map((r) => x[r] as number)];
     const y = x[this.input] as number;
-    const r = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => s.covariance[i][j] / this.discount));
-    const rf = r.map((row) => la.dot(row, f));
-    const q = 1.0 + la.dot(f, rf);
+    // the prior precision delta P, the inverse of R = C / delta; Rf and q = f'Rf + 1 from its Cholesky factor
+    const low = choleskyFloor(Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => this.discount * s.precision[i][j])));
+    const q = 1.0 + quad(low, f);
+    const rf = backward(low, forward(low, f));
     const error = y - la.dot(f, s.mean);
     const lam = this.varianceDiscount;
     let scale: number | null = null, z: number | null = null, score: number | null = null;
@@ -482,35 +483,33 @@ export class DynamicRegression extends BaseProcedure {
       score = logDensity(error, scale, df);
       [logLik, comp] = neumaierAdd(logLik, comp, score);
     }
-    const gain = rf.map((v) => v / q);
-    const mean = s.mean.map((m, i) => requireFinite(m + gain[i] * error, "coefficients"));
-    // Joseph form, (I - g f') R (I - g f')' + g g': positive semi-definite in floating point too
-    const keep = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => (i === j ? 1.0 : 0.0) - gain[i] * f[j]));
-    const joseph = la.quadratic(keep, r);
-    const cov = Array.from({ length: k }, (_, i) =>
-      Array.from({ length: k }, (_, j) => requireFinite(joseph[i][j] + gain[i] * gain[j], "coefficient covariance")));
+    const mean = s.mean.map((m, i) => requireFinite(m + rf[i] / q * error, "coefficients"));
+    // information form: delta P + f f' is a sum of positive semi-definite matrices, so no cancellation
+    const prec = Array.from({ length: k }, (_, i) =>
+      Array.from({ length: k }, (_, j) => requireFinite(this.discount * s.precision[i][j] + f[i] * f[j], "precision")));
     const dof = lam * s.dof + 1.0;
     const ss = requireFinite(lam * s.sum_squares + error * error / q, "sum of squares");
-    const next: DynamicRegressionState = { n: s.n + 1, mean, covariance: cov, dof, sum_squares: ss, log_likelihood: logLik, comp };
+    const next: DynamicRegressionState = { n: s.n + 1, mean, precision: prec, dof, sum_squares: ss, log_likelihood: logLik, comp };
     let sd: number[] | null = null;
     if (ss > 0.0) {
       const v = ss / dof;
-      sd = Array.from({ length: k }, (_, i) => Math.sqrt(pyMax(cov[i][i], 0.0) * v));
+      const low2 = choleskyFloor(prec);
+      sd = Array.from({ length: k }, (_, i) => Math.sqrt(quad(low2, Array.from({ length: k }, (_, j) => (j === i ? 1.0 : 0.0))) * v));
     }
     return [next, { n: next.n, coefficients: mean, sd, error, scale, z, log_score: score, log_likelihood: logLik }];
   }
 
   decodeState(data: Json): DynamicRegressionState {
     const s = decodeFields({
-      n: "count", mean: "numbers", covariance: "json", dof: "number", sum_squares: "number", log_likelihood: "number", comp: "number",
+      n: "count", mean: "numbers", precision: "json", dof: "number", sum_squares: "number", log_likelihood: "number", comp: "number",
     }, data) as DynamicRegressionState;
-    checkMatrix("covariance", s.covariance);
+    checkMatrix("precision", s.precision);
     const k = this.k;
-    requireState(s.mean.length === k && s.covariance.length === k && s.covariance.every((r) => r.length === k),
+    requireState(s.mean.length === k && s.precision.length === k && s.precision.every((r) => r.length === k),
       "one coefficient per regressor");
     let diagonal = true;
-    for (let i = 0; i < k; i++) diagonal = diagonal && s.covariance[i][i] >= 0;
-    requireState(la.isSymmetric(s.covariance) && diagonal, "the covariance must be symmetric with a non-negative diagonal");
+    for (let i = 0; i < k; i++) diagonal = diagonal && s.precision[i][i] > 0;
+    requireState(la.isSymmetric(s.precision) && diagonal, "the precision must be symmetric with a positive diagonal");
     requireState(s.dof >= 0 && s.sum_squares >= 0, "variance statistics");
     return s;
   }

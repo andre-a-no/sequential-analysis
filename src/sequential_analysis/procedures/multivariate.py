@@ -39,9 +39,10 @@ as a random walk -- the hedge ratio of a pair of assets, a time-varying
 beta.  It is the dynamic linear model with discount factor delta and an
 unknown observation variance learnt alongside (West and Harrison 1997,
 sections 4.5 and 6.3): the coefficients' covariance is inflated by 1/delta
-before each observation (the update is in Joseph form, which keeps it
-positive semi-definite in floating point), and the one-step forecast of y
-is Student t.  Its
+before each observation, and the one-step forecast of y is Student t.  The
+state holds the precision (the inverse covariance), updated as
+delta P + f f', a sum of positive semi-definite terms: the covariance
+form loses tiny variances to cancellation when a regressor is huge.  Its
 standardized forecast error z is the spread signal of pairs trading.
 
 Cost per step (PERFORMANCE.md): VectorAutoRegressive is O(k^3 + k^2 d) for
@@ -476,7 +477,7 @@ class CrossCorrelation(Procedure):
 class DynamicRegressionState:
     n: int
     mean: tuple[float, ...]  # posterior mean of the coefficients (intercept first)
-    covariance: tuple[tuple[float, ...], ...]  # their covariance in units of the observation variance
+    precision: tuple[tuple[float, ...], ...]  # inverse of their covariance, in units of the observation variance
     dof: float  # discounted number of observations behind the variance estimate
     sum_squares: float  # discounted sum of standardized squared errors
     log_likelihood: float = 0.0
@@ -535,16 +536,17 @@ class DynamicRegression(Procedure):
 
     def initial_state(self) -> DynamicRegressionState:
         k = self.k
-        cov = tuple(tuple(self.prior_scale if i == j else 0.0 for j in range(k)) for i in range(k))
-        return DynamicRegressionState(0, (0.0,) * k, cov, 0.0, 0.0)
+        prec = tuple(tuple(1.0 / self.prior_scale if i == j else 0.0 for j in range(k)) for i in range(k))
+        return DynamicRegressionState(0, (0.0,) * k, prec, 0.0, 0.0)
 
     def step(self, state: DynamicRegressionState, x, rng=None):
         k = self.k
         f = ([1.0] if self.intercept else []) + [float(x[r]) for r in self.regressors]
         y = float(x[self.input])
-        r = [[state.covariance[i][j] / self.discount for j in range(k)] for i in range(k)]
-        rf = [la.dot(row, f) for row in r]
-        q = 1.0 + la.dot(f, rf)
+        # the prior precision delta P, the inverse of R = C / delta; Rf and q = f'Rf + 1 from its Cholesky factor
+        low = _cholesky_floor([[self.discount * state.precision[i][j] for j in range(k)] for i in range(k)])
+        q = 1.0 + _quad(low, f)
+        rf = _backward(low, _forward(low, f))
         error = y - la.dot(f, state.mean)
         lam = self.variance_discount
         scale = z = score = None
@@ -555,28 +557,26 @@ class DynamicRegression(Procedure):
             z = error / scale
             score = log_density(error, scale, df)
             log_lik, comp = neumaier_add(log_lik, comp, score)
-        gain = [v / q for v in rf]
-        mean = tuple(require_finite(m + g * error, "coefficients") for m, g in zip(state.mean, gain))
-        # Joseph form, (I - g f') R (I - g f')' + g g': positive semi-definite in floating point too
-        keep = tuple(tuple((1.0 if i == j else 0.0) - gain[i] * f[j] for j in range(k)) for i in range(k))
-        joseph = la.quadratic(keep, tuple(tuple(row) for row in r))
-        cov = tuple(tuple(require_finite(joseph[i][j] + gain[i] * gain[j], "coefficient covariance")
-                          for j in range(k)) for i in range(k))
+        mean = tuple(require_finite(m + g / q * error, "coefficients") for m, g in zip(state.mean, rf))
+        # information form: delta P + f f' is a sum of positive semi-definite matrices, so no cancellation
+        prec = tuple(tuple(require_finite(self.discount * state.precision[i][j] + f[i] * f[j], "precision")
+                           for j in range(k)) for i in range(k))
         dof = lam * state.dof + 1.0
         ss = require_finite(lam * state.sum_squares + error * error / q, "sum of squares")
-        new = DynamicRegressionState(state.n + 1, mean, cov, dof, ss, log_lik, comp)
+        new = DynamicRegressionState(state.n + 1, mean, prec, dof, ss, log_lik, comp)
         sd = None
         if ss > 0.0:
             v = ss / dof
-            sd = tuple(math.sqrt(max(cov[i][i], 0.0) * v) for i in range(k))
+            low = _cholesky_floor(prec)
+            sd = tuple(math.sqrt(_quad(low, [1.0 if j == i else 0.0 for j in range(k)]) * v) for i in range(k))
         return new, DynamicRegressionOutput(new.n, mean, sd, error, scale, z, score, log_lik)
 
     def decode_state(self, data) -> DynamicRegressionState:
         state = decode_fields(DynamicRegressionState, data)
         k = self.k
-        require_state(len(state.mean) == k and len(state.covariance) == k
-                      and all(len(r) == k for r in state.covariance), "one coefficient per regressor")
-        require_state(la.is_symmetric(state.covariance) and all(state.covariance[i][i] >= 0 for i in range(k)),
-                      "the covariance must be symmetric with a non-negative diagonal")
+        require_state(len(state.mean) == k and len(state.precision) == k
+                      and all(len(r) == k for r in state.precision), "one coefficient per regressor")
+        require_state(la.is_symmetric(state.precision) and all(state.precision[i][i] > 0 for i in range(k)),
+                      "the precision must be symmetric with a positive diagonal")
         require_state(state.dof >= 0 and state.sum_squares >= 0, "variance statistics")
         return state

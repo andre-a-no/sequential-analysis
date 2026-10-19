@@ -32,7 +32,7 @@ tutorials, on pairs and lead-lag strategies and on a news stream.
   does not test.
 - `DynamicRegression`: regression on coefficients that drift as a random
   walk, the discount dynamic linear model with unknown variance (West and
-  Harrison 1997), in Joseph form. It gives a hedge ratio or a
+  Harrison 1997), kept in information form. It gives a hedge ratio or a
   time-varying beta and the standardized spread `z`.
 
 ### Added: streams of events
