@@ -23,18 +23,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sequential_analysis import Delivery, Independent, KeyJoin, Recorder, Run, equivalent, run_sync
+from sequential_analysis import AsOfJoin, Delivery, Independent, KeyJoin, Recorder, Run, equivalent, run_sync
 from sequential_analysis.procedures import (
     SPRT,
     ABTest,
     Bernoulli,
+    DynamicRegression,
     MeanEDetector,
     NormalMixtureSPRT,
     TwoProportionTest,
 )
 from sequential_analysis.sources import from_values
 
-from .helpers import ab_units
+from .helpers import ab_units, bars_and_news
 
 ROOT = Path(__file__).resolve().parent.parent
 CLI = ROOT / "ts" / "dist" / "src" / "cli.js"
@@ -53,6 +54,9 @@ def cases():
         ("A/B test with covariate", lambda: ABTest(covariate=True, start=20), lambda: KeyJoin(("arm", "y", "x")),
          Delivery, ab_units(120, seed=6)),
         ("e-detector", lambda: MeanEDetector(0.5, arl=1e9), Independent, Delivery, list(from_values("x", values))),
+        ("news as of bars, decayed", lambda: DynamicRegression(("news_count", "news_sum", "news_decayed",
+                                                                "news_decayed_count"), input="r", discount=0.99),
+         lambda: AsOfJoin("r", "news", half_life=2.0), Delivery, bars_and_news(60)),
     ]
 
 

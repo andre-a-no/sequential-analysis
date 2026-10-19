@@ -9,6 +9,7 @@ from .bocpd import BayesianChangePoint, BetaBernoulliModel, NormalGammaModel, Po
 from .cusum import CUSUM
 from .edetector import MeanEDetector, QuantileEDetector
 from .ema import EMA
+from .events import EventStudy, HawkesProcess
 from .families import Bernoulli, Exponential, Family, Gaussian, Poisson
 from .forecast import (
     AutoRegressive,
@@ -39,6 +40,7 @@ from .hmm import (
 from .kalman import LocalLevelKalman
 from .linear_model import AnytimeLinearModel
 from .mixture import NormalMixtureSPRT
+from .multivariate import CrossCorrelation, DynamicRegression, VectorAutoRegressive
 from .online_fdr import OnlineFDR
 from .online_hmm import OnlineHMM
 from .particle import BootstrapParticleFilter
@@ -84,6 +86,9 @@ __all__ = [
     "CategoricalEmission",
     "CatoniConfidenceSequence",
     "ConformalForecast",
+    "CrossCorrelation",
+    "DynamicRegression",
+    "EventStudy",
     "Exponential",
     "ExponentialSmoothing",
     "Family",
@@ -95,6 +100,7 @@ __all__ = [
     "GroupSequentialProportions",
     "GroupSequentialTest",
     "GroupSequentialTwoMeans",
+    "HawkesProcess",
     "HiddenMarkovFilter",
     "KalmanFilter",
     "KernelTwoSampleTest",
@@ -132,6 +138,7 @@ __all__ = [
     "ThompsonAllocation",
     "TwoProportionTest",
     "TwoSPRT",
+    "VectorAutoRegressive",
     "averaged_counts",
     "averaged_smoothing",
     "e_bh",

@@ -12,10 +12,10 @@ specified in SPEC.md:
 ## Agreement with the Python library
 
 * **History digests and random states** are identical.
-* **Outputs and states** are identical for 28 of the 92 conformance
+* **Outputs and states** are identical for 34 of the 105 conformance
   cases. For the others they agree to 5e-14 relative, and to 5.9e-13 in
-  twelve cases (a value near zero, or a weight, that is a difference of
-  much larger terms, in seven; bounds found by a root search, in four;
+  thirteen cases (a value near zero, or a weight, that is a difference of
+  much larger terms, in eight; bounds found by a root search, in four;
   a quadrature, in one): V8 rounds `Math.log`, `log1p`, `exp`, `expm1` and
   `cos` differently from the C library.
 * **Decisions** never differ.
@@ -67,7 +67,18 @@ The executor has two parts:
     Kalman filter, the hidden Markov filter (categorical, Gaussian and
     Poisson emissions), the bootstrap particle filters (local level;
     linear Gaussian, stochastic volatility and Student t local level),
-    EMA and the mean difference.
+    EMA and the mean difference;
+  * several series at once: vector autoregression (fixed or learnt
+    online), lead-lag cross-correlations and regression on drifting
+    coefficients (`DynamicRegression`); `Lagged`, which feeds a
+    procedure the recent past of its inputs (an anytime-valid Granger
+    test with the linear model inside);
+  * streams of events: the Hawkes process filter and event studies.
+
+  Topologies: independent, positional pair, key join, time alignment and
+  the as-of join of bars with irregular events. Its decayed sums use
+  `portableExp2` (only +, *, /), so they are bit for bit those of Python
+  and a continued run keeps the same history digest.
 
   Procedures that offer a numpy backend are continued here only when the
   run used `backend="python"`: numpy's `exp`, `log` and sums are not

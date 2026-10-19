@@ -6,6 +6,7 @@ import type { Json } from "./canonical.js";
 import type { StatInput } from "./contracts.js";
 import { ContractViolation, OrderingError } from "./errors.js";
 import { complete, type Observation } from "./observation.js";
+import { portableExp2 } from "./numerics.js";
 
 /** Stands for an input a transformation could not map; the run reports and skips it. */
 export class InvalidInput {
@@ -162,6 +163,117 @@ export class TimeAlign extends Buffered implements Topology {
   }
 }
 
+const finiteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const pyList = (names: string[]): string => `[${names.map((n) => `'${n}'`).join(", ")}]`;
+
+/**
+ * Attach to every bar what a stream of events said up to the bar's time: <prefix>_count and <prefix>_sum of the
+ * events since the previous bar, and with a half-life <prefix>_decayed and <prefix>_decayed_count (see topology.py).
+ * Not confluent: what a bar sees depends on which events arrived before it.
+ */
+export class AsOfJoin implements Topology {
+  readonly halfLife: number | null;
+  readonly prefix: string;
+  readonly inputs: string[];
+  readonly fields: string[];
+  late = 0;
+  private pending: [number, number][] = [];
+  private lastBar: number | null = null;
+  private lastEvent: number | null = null;
+  private decayed = 0.0;
+  private decayedCount = 0.0;
+
+  constructor(readonly bars: string, readonly events: string, halfLife: number | null = null, prefix: string | null = null) {
+    if (!(typeof bars === "string" && bars && typeof events === "string" && events) || bars === events)
+      throw new Error("bars and events must be two distinct non-empty input names");
+    if (halfLife !== null && !(typeof halfLife === "number" && 0 < halfLife && halfLife < Infinity))
+      throw new Error("half_life must be a positive finite number or None");
+    if (prefix !== null && !(typeof prefix === "string" && prefix)) throw new Error("prefix must be a non-empty string or None");
+    this.halfLife = halfLife;
+    this.prefix = prefix !== null ? prefix : events;
+    this.inputs = [bars, events];
+    this.fields = ["count", "sum", ...(halfLife !== null ? ["decayed", "decayed_count"] : [])].map((f) => `${this.prefix}_${f}`);
+  }
+
+  spec(): Json {
+    return { type: "as_of_join", bars: this.bars, events: this.events, half_life: this.halfLife, prefix: this.prefix };
+  }
+
+  push(obs: Observation): StatInput[] {
+    if (!this.inputs.includes(obs.input)) throw new ContractViolation(`observation for input '${obs.input}' is not part of this topology`);
+    const time = complete(obs).time;
+    if (time === null) throw new ContractViolation("an as-of join needs an event time on every observation");
+    if (obs.input === this.events) {
+      if (!finiteNumber(obs.value)) throw new ContractViolation(`input '${this.events}': an event's value must be a finite number`);
+      if (this.lastEvent !== null && time < this.lastEvent)
+        throw new OrderingError(`input '${this.events}': event time went backwards (${time} < ${this.lastEvent})`);
+      this.lastEvent = time;
+      this.pending.push([time, obs.value]);
+      return [];
+    }
+    if (this.lastBar !== null && time < this.lastBar)
+      throw new OrderingError(`input '${this.bars}': event time went backwards (${time} < ${this.lastBar})`);
+    let row: StatInput;
+    const value = obs.value;
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      row = { ...value };
+      const clash = Object.keys(row).filter((k) => this.fields.includes(k)).sort();
+      if (clash.length) throw new ContractViolation(`input '${this.bars}': fields ${pyList(clash)} are the join's own`);
+    } else row = { [this.bars]: value };
+    const now = time;
+    let count = 0, total = 0.0, decayed = this.decayed, decayedCount = this.decayedCount;
+    if (this.halfLife !== null && this.lastBar !== null) {
+      const f = portableExp2(-(now - this.lastBar) / this.halfLife);
+      decayed = decayed * f;
+      decayedCount = decayedCount * f;
+    }
+    while (this.pending.length && this.pending[0][0] <= now) {
+      const [t, v] = this.pending.shift()!;
+      if (this.lastBar !== null && t <= this.lastBar) this.late += 1;
+      count += 1;
+      total += v;
+      if (this.halfLife !== null) {
+        const w = portableExp2(-(now - t) / this.halfLife);
+        decayed += v * w;
+        decayedCount += w;
+      }
+    }
+    this.lastBar = now;
+    this.decayed = decayed;
+    this.decayedCount = decayedCount;
+    row[this.fields[0]] = count;
+    row[this.fields[1]] = total;
+    if (this.halfLife !== null) {
+      row[this.fields[2]] = decayed;
+      row[this.fields[3]] = decayedCount;
+    }
+    return [row];
+  }
+
+  state(): Json {
+    return {
+      pending: this.pending.map(([t, v]) => [t, v]), last_bar: this.lastBar, last_event: this.lastEvent, decayed: this.decayed,
+      decayed_count: this.decayedCount, late: this.late,
+    };
+  }
+
+  restore(state: Json): void {
+    const s = state as { pending: Json; last_bar: Json; last_event: Json; decayed: Json; decayed_count: Json; late: Json };
+    if (!Array.isArray(s.pending) || !s.pending.every((item) => Array.isArray(item) && item.length === 2 && item.every(finiteNumber)))
+      throw new Error("pending events must be [time, value] pairs");
+    for (const k of ["last_bar", "last_event"] as const)
+      if (s[k] !== null && !finiteNumber(s[k])) throw new Error(`${k} must be a number or null`);
+    if (!finiteNumber(s.decayed) || !finiteNumber(s.decayed_count)) throw new Error("decayed sums must be numbers");
+    if (!(finiteNumber(s.late) && Number.isInteger(s.late))) throw new Error("late must be an integer");
+    this.pending = (s.pending as [number, number][]).map(([t, v]) => [t, v]);
+    this.lastBar = s.last_bar as number | null;
+    this.lastEvent = s.last_event as number | null;
+    this.decayed = s.decayed;
+    this.decayedCount = s.decayed_count;
+    this.late = s.late;
+  }
+}
+
 /** A topology followed by the difference transform {a, b} -> {out: a - b} (Python: topology.map(difference(a, b, out))). */
 export class Difference implements Topology {
   constructor(readonly inner: Topology, readonly a: string, readonly b: string, readonly out = "x") {}
@@ -197,6 +309,8 @@ export function topologyFromSpec(spec: Json): Topology {
       return new KeyJoin(s.inputs as string[]);
     case "time_align":
       return new TimeAlign(s.inputs as string[], s.tolerance as number);
+    case "as_of_join":
+      return new AsOfJoin(s.bars as string, s.events as string, s.half_life as number | null, s.prefix as string | null);
     case "mapped": {
       const map = s.map as { name: string; version: string; config: { a: string; b: string; out: string } };
       if (map.name !== "difference" || map.version !== "1") throw new Error(`transform ${map.name} has no TypeScript implementation`);

@@ -165,6 +165,28 @@ spec and state is listed below, with what the topology emits.
 * Heads within `t` of each other are paired.
 * Otherwise the earlier head is discarded and counted in `unmatched`.
 
+**`{"type": "as_of_join", "bars": b, "events": e, "half_life": h | null, "prefix": p}`** (state: `{"pending": [[time, value], ...], "last_bar": time | null, "last_event": time | null, "decayed": x, "decayed_count": x, "late": int}`)
+
+* Every observation needs a time, and times must not decrease per input;
+  a decrease is an ordering error. An event's value must be a finite
+  number.
+* An event is queued and emits nothing.
+* A bar emits its value (a number under the name `b`, or the fields of
+  a mapping, which must not use the join's own names) and, over the
+  queued events whose time is at most the bar's, `p_count` and `p_sum`,
+  taken in queue order. Such an event whose time is at most the previous
+  bar's is counted in `late`.
+* With `h`, the decayed sums `p_decayed` and `p_decayed_count` are first
+  multiplied by `portable_exp2(-(T - T_prev) / h)` for the bar's time T
+  and the previous bar's T_prev, and then each event adds `v w` and `w`
+  with `w = portable_exp2(-(T - t) / h)`. `portable_exp2(x)` is computed
+  with correctly rounded operations only, so that the emitted input is
+  the same in every implementation:
+  * n = floor(x), y = (x - n) * 0.6931471805599453;
+  * r = 1; for k = 20, 19, ..., 1: r = 1 + (y * r) / k;
+  * then r is halved -n times, or doubled n times;
+  * the result is 0 for x < -1100.
+
 **`{"type": "mapped", "map": {"name", "version", "config"}, "inner": spec}`** (state: the inner state)
 
 * Applies the transformation to every emitted input.
@@ -371,9 +393,9 @@ Sums and products are reproduced exactly when they are evaluated in the
 reference order. Every procedure's sums are left-to-right or
 Neumaier-compensated, never pairwise. Decisions are compared exactly.
 
-In the TypeScript executor, 28 of the 92 cases agree bit for bit. The
+In the TypeScript executor, 34 of the 105 cases agree bit for bit. The
 others differ in the last bits only: by at most 5e-14 relative, except
-in twelve cases. Every such difference was traced to `Math.log`, `log1p`,
+in thirteen cases. Every such difference was traced to `Math.log`, `log1p`,
 `exp`, `expm1` or `cos` rounding differently from the C library. In
 six of the seven a small value is a difference of much larger terms,
 so a last-bit difference in those terms is large relative to it: in
@@ -397,7 +419,9 @@ weights are exponentials of differences of log-likelihoods built from
 log-gamma terms. In `thompson_allocation` (9.4e-14) the probabilities
 that each arm is best are quadratures of products of Beta densities and
 distribution functions, which carry the last bits of `log`, `exp` and
-the incomplete beta function. No
+the incomplete beta function. In `var_learnt` (5.6e-13) an interval
+bound of 0.007 is a forecast minus a quantile times a scale, which
+carries the last bit of the t quantile. No
 decision differs.
 
 The TypeScript executor implements the procedures listed by

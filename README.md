@@ -13,8 +13,11 @@ trials, A/B testing (exact conversion tests, sample ratio mismatch,
 covariate adjustment, many metrics with false discovery rate control),
 change-point detection (CUSUM, Shiryaev–Roberts, nonparametric
 e-detectors, Bayesian online change points), Kalman, particle and
-hidden Markov filters with smoothing, and forecasting with fixed or
-continuously learnt parameters. Every procedure may be monitored
+hidden Markov filters with smoothing, forecasting with fixed or
+continuously learnt parameters, several series at once (vector
+autoregression, lead-lag and Granger tests, drifting regressions for
+pairs) and streams of events (Hawkes processes, event studies, an as-of
+join of news to price bars). Every procedure may be monitored
 after each observation and stopped at any time, and a run is checkpointed
 and resumed bit for bit, in Python or in the TypeScript executor.
 
@@ -99,6 +102,8 @@ list is on the [which-method page](https://andre-a-no.github.io/sequential-analy
 | Filtering and estimation | `KalmanFilter` (any linear Gaussian state-space model: trends, autoregressions, tracking, control input; exact likelihood), `RobustKalmanFilter` (Student-t observation noise: outliers discounted), `HiddenMarkovFilter` (which hidden regime now; categorical, Gaussian, Student-t, multivariate Gaussian or Poisson observations), `OnlineHMM` (the same while learning the transition and emission parameters on the stream: online EM), `ParticleFilter` (any model you can simulate: stochastic volatility, heavy tails; unbiased likelihood), `LocalLevelKalman`, `BootstrapParticleFilter`, `MeanDifference`, `EMA` |
 | Smoothing and fitting (offline) | `sequential_analysis.smoothing`: `kalman_smoother` (Rauch–Tung–Striebel), `forward_backward` and `viterbi` for hidden Markov models; `sequential_analysis.hmm_fit.fit_hmm` (Baum–Welch with restarts; agrees with hmmlearn) |
 | Forecasting | `ExponentialSmoothing` (ETS: level, additive or damped trend, additive season; forecasts and intervals agree with statsmodels), `AutoRegressive` (AR(p)), each with regressors known ahead (promotions, holidays, prices), an optional log scale, and fixed parameters from `sequential_analysis.forecasting.fit_ets` / `fit_ar` or learnt on the stream (Bayesian regression on the lags and regressors with forgetting; the noise level; the effects of regressors); `PoissonSmoothing` (counts: negative binomial forecasts with count intervals, `fit_counts`, `averaged_counts`); `ModelAveraging`, `averaged_smoothing` (weights forecasters by their predictive densities, with forgetting: learns the smoothing parameters); `ConformalForecast` (distribution-free intervals around any forecaster: long-run coverage for any data); `ForecastComparison` (anytime-valid: is forecaster A better than B?) |
+| Several series | `VectorAutoRegressive` (VAR(p) with fixed coefficients from `fit_var`, which agrees with statsmodels, or learnt online with forgetting: multivariate Student t forecasts), `CrossCorrelation` (lead-lag correlations at lags -L..L), `Lagged` (feeds any procedure the past of its inputs; with `AnytimeLinearModel`, an anytime-valid Granger test), `DynamicRegression` (drifting coefficients with unknown variance: hedge ratios, time-varying betas, the spread's z-score) |
+| Event streams | `HawkesProcess` (exact filter of a self-exciting process: intensity, likelihood, time-rescaled compensators, expected events; `fit_hawkes`, `simulate_hawkes`), `EventStudy` (cumulative reaction after events, with confidence sequences), the `AsOfJoin` topology (events attached to the bars that knew them, with decayed sums, no look-ahead) |
 | Bayesian change points | `BayesianChangePoint` (Adams–MacKay run-length posterior; unknown parameters before and after the change; normal, Poisson, 0/1 data) |
 
 Likelihood-ratio procedures take a family: `Gaussian` (known variance),

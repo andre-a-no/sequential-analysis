@@ -22,6 +22,12 @@ error.
 least squares (the first p values are conditioned on), as statsmodels'
 AutoReg; sigma^2 is the residual sum of squares over n - p.
 
+`fit_var` estimates a VAR(p) with intercept by least squares, equation
+by equation (as statsmodels' VAR), with the maximum-likelihood noise
+covariance (residual cross-products over the n - p fitted steps), and can
+choose p by AIC among 1..max_order on the common sample that the largest
+order leaves (as statsmodels' select_order).
+
 `fit_counts` estimates the discount of PoissonSmoothing by maximizing the
 prequential likelihood (golden-section search on [0.01, 1]).
 
@@ -46,6 +52,7 @@ from typing import Any
 
 from . import linalg as la
 from .procedures.forecast import TRANSFORMS, TRENDS, AutoRegressive, ExponentialSmoothing, PoissonSmoothing
+from .procedures.multivariate import VectorAutoRegressive
 
 _LOG_2PI = math.log(2.0 * math.pi)
 
@@ -393,6 +400,91 @@ def fit_ar(inputs: Iterable[Any], order: int, *, regressors: Sequence[str] = (),
     if regressors:
         parameters["effects"] = list(effects)
     return ForecastFit(model, state, log_lik, 2.0 * (k + 1) - 2.0 * log_lik, parameters, 1)
+
+
+def _var_least_squares(rows: Sequence[Sequence[float]], order: int, start: int):
+    """(theta k x d, residual cross-products d x d, number of fitted steps) for steps start..end."""
+    d = len(rows[0])
+    k = 1 + d * order
+    gram = [[0.0] * k for _ in range(k)]
+    rhs = [[0.0] * d for _ in range(k)]
+
+    def design(t: int) -> list[float]:
+        u = [1.0]
+        for j in range(1, order + 1):
+            u.extend(rows[t - j])
+        return u
+
+    for t in range(start, len(rows)):
+        u = design(t)
+        for i in range(k):
+            for c in range(d):
+                rhs[i][c] += u[i] * rows[t][c]
+            for j in range(k):
+                gram[i][j] += u[i] * u[j]
+    try:
+        low = la.cholesky(tuple(tuple(r) for r in gram))
+    except ValueError:
+        raise ValueError("the lags are collinear (a constant series?)") from None
+    columns = [la.solve_cholesky(low, [rhs[i][c] for i in range(k)]) for c in range(d)]
+    theta = [[columns[c][i] for c in range(d)] for i in range(k)]
+    cross = [[0.0] * d for _ in range(d)]
+    for t in range(start, len(rows)):
+        u = design(t)
+        e = [rows[t][c] - la.dot(u, columns[c]) for c in range(d)]
+        for i in range(d):
+            for j in range(d):
+                cross[i][j] += e[i] * e[j]
+    return theta, cross, len(rows) - start
+
+
+def fit_var(inputs: Iterable[Mapping[str, Any]], series: Sequence[str], order: int | None = None, *,
+            max_order: int = 8, horizon: int = 1, coverage: float = 0.9) -> ForecastFit:
+    """Least-squares VAR(p) with intercept; with order None, p chosen by AIC up to max_order. See the docstring."""
+    records = list(inputs)
+    series = tuple(series)
+    columns = [_values(records, s) for s in series]
+    rows = [tuple(c[t] for c in columns) for t in range(len(records))]
+    d = len(series)
+    if order is None:
+        if type(max_order) is not int or max_order < 1:
+            raise ValueError("max_order must be a positive int")
+        best = None
+        for p in range(1, max_order + 1):
+            if len(rows) - max_order < 1 + d * p + 1:
+                break
+            _, cross, n = _var_least_squares(rows, p, max_order)
+            mle = tuple(tuple(v / n for v in r) for r in cross)
+            aic = n * la.log_det_spd(mle) + 2.0 * d * (1 + d * p)
+            if best is None or aic < best[0]:
+                best = (aic, p)
+        if best is None:
+            raise ValueError("the history is too short for an order of 1")
+        order = best[1]
+    if type(order) is not int or order < 1:
+        raise ValueError("order must be a positive int")
+    k = 1 + d * order
+    n = len(rows) - order
+    if n < k + 1:
+        raise ValueError("the history is too short for this order")
+    theta, cross, n = _var_least_squares(rows, order, order)
+    covariance = la.symmetrize(tuple(tuple(v / n for v in r) for r in cross))
+    try:
+        log_det = la.log_det_spd(covariance)
+    except ValueError:
+        raise ValueError("the history is fitted exactly; the noise covariance is singular") from None
+    log_lik = -0.5 * n * (d * _LOG_2PI + log_det + d)
+    intercept = list(theta[0])
+    coefficients = [[[theta[1 + j * d + c][i] for c in range(d)] for i in range(d)] for j in range(order)]
+    model = VectorAutoRegressive(series, order, coefficients=coefficients, intercept=intercept,
+                                 covariance=covariance, horizon=horizon, coverage=coverage)
+    state = model.initial_state()
+    for x in records:
+        state, _ = model.step(state, x)
+    parameters = {"order": order, "intercept": intercept, "coefficients": coefficients,
+                  "covariance": [list(r) for r in covariance]}
+    free = d * k + d * (d + 1) // 2
+    return ForecastFit(model, state, log_lik, 2.0 * free - 2.0 * log_lik, parameters, 1)
 
 
 def fit_counts(inputs: Iterable[Any], *, exposure: str | None = None, prior: Sequence[float] = (0.0, 0.0),

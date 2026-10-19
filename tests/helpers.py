@@ -9,10 +9,12 @@ import math
 import random
 
 from sequential_analysis import (
+    AsOfJoin,
     Chain,
     Delivery,
     Independent,
     KeyJoin,
+    Lagged,
     Observation,
     PositionalPair,
     Recorder,
@@ -36,6 +38,9 @@ from sequential_analysis.procedures import (
     BoundedABTest,
     CatoniConfidenceSequence,
     ConformalForecast,
+    CrossCorrelation,
+    DynamicRegression,
+    EventStudy,
     ExponentialSmoothing,
     ForecastComparison,
     Gaussian,
@@ -45,6 +50,7 @@ from sequential_analysis.procedures import (
     GroupSequentialProportions,
     GroupSequentialTest,
     GroupSequentialTwoMeans,
+    HawkesProcess,
     HiddenMarkovFilter,
     KalmanFilter,
     KernelTwoSampleTest,
@@ -77,6 +83,7 @@ from sequential_analysis.procedures import (
     TMixtureSPRT,
     TwoProportionTest,
     TwoSPRT,
+    VectorAutoRegressive,
 )
 from sequential_analysis.sources import from_values, gaussian, interleave
 
@@ -182,6 +189,18 @@ def rate_rows(n: int, seed: int):
             p *= rnd.random()
         rows.append({"arm": arm, "count": k, "exposure": e})
     return rows
+
+
+def bars_and_news(n: int):
+    """Bars at 1, 2, ..., n with a return; news scores at irregular times, delivered in time order among them."""
+    out, seq = [], 0
+    for bar in range(1, n + 1):
+        for j in range(bar % 3):
+            out.append(Observation("news", round(math.sin(bar * 1.7 + j), 3), seq=seq, time=bar - 0.9 + 0.3 * j))
+            seq += 1
+        out.append(Observation("r", round(0.01 * math.cos(bar * 0.7), 5), seq=seq, time=float(bar)))
+        seq += 1
+    return out
 
 
 def chain_ema_cusum():
@@ -647,6 +666,58 @@ def cases():
             Independent,
             Delivery,
             list(from_values("log_e", [((i * 37) % 23) / 2.0 - 3.0 for i in range(n)])),
+            None,
+        ),
+        (
+            "vector_autoregressive",
+            lambda: VectorAutoRegressive(("a", "b"), 1, forgetting=0.99, horizon=2),
+            lambda: KeyJoin(("a", "b")),
+            Delivery,
+            record_stream([{"a": math.sin(0.4 * i) + 0.1 * ((i * 13) % 7), "b": math.cos(0.3 * i)}
+                           for i in range(n)], ("a", "b")),
+            None,
+        ),
+        (
+            "cross_correlation",
+            lambda: CrossCorrelation(max_lag=2, forgetting=0.97),
+            lambda: PositionalPair(("a", "b")),
+            Delivery,
+            list(interleave(from_values("a", [math.sin(0.5 * i) for i in range(n)]),
+                            from_values("b", [math.sin(0.5 * i + 1.0) for i in range(n)]))),
+            None,
+        ),
+        (
+            "lagged_dynamic_regression",
+            lambda: Lagged(DynamicRegression(("x_lag1",), discount=0.97), {"x": 1}),
+            lambda: KeyJoin(("x", "y")),
+            Delivery,
+            record_stream([{"x": math.sin(0.3 * i), "y": 0.8 * math.sin(0.3 * (i - 1)) + 0.05 * ((i * 7) % 5)}
+                           for i in range(n)], ("x", "y")),
+            None,
+        ),
+        (
+            "news_as_of_bars",
+            lambda: DynamicRegression(("news_count", "news_sum", "news_decayed", "news_decayed_count"),
+                                      input="r", discount=0.99),
+            lambda: AsOfJoin("r", "news", half_life=2.0),
+            Delivery,
+            bars_and_news(n),
+            None,
+        ),
+        (
+            "hawkes_process",
+            lambda: HawkesProcess(0.5, 0.4, 1.0, window=1.0),
+            Independent,
+            Delivery,
+            list(from_values("t", [0.37 * i + 0.2 * math.sin(i) for i in range(n)])),
+            None,
+        ),
+        (
+            "event_study",
+            lambda: EventStudy(3, start=3, tuned_for=10.0),
+            lambda: KeyJoin(("r", "event")),
+            Delivery,
+            record_stream([{"r": math.sin(1.1 * i), "event": int(i % 9 == 0)} for i in range(n)], ("r", "event")),
             None,
         ),
         (

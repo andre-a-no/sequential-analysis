@@ -99,6 +99,12 @@ Measured with `python tools/benchmark.py --markdown` on CPython 3.13.16, numpy 2
 | ExponentialSmoothing, season 7, 2 learnt regressors, 7 ahead | - | 100 | 387 µs | 1098 B |
 | PoissonSmoothing, 7 ahead | - | 100 | 226 µs | 148 B |
 | averaged_counts (8 discounts) | - | 100 | 622 µs | 1434 B |
+| VectorAutoRegressive, 3 series, order 2, learnt, 5 ahead | - | 100 | 814 µs | 1909 B |
+| CrossCorrelation, lags -10..10 | - | 100 | 39 µs | 3417 B |
+| DynamicRegression, intercept and 1 regressor | - | 100 | 24 µs | 290 B |
+| Lagged AnytimeLinearModel, Granger test with 3 lags | - | 100 | 68 µs | 943 B |
+| HawkesProcess | - | 100 | 2 µs | 139 B |
+| EventStudy, 10 steps | - | 1,000 | 8 µs | 492 B |
 | ThompsonAllocation, 3 binary arms, split every unit | - | 1,000 | 14.6 ms | 426 B |
 | BoundedABTest with propensities, grid 1000 | python | 100 | 452 µs | 40 kB |
 | BoundedABTest with propensities, grid 1000 | numpy | 100 | 145 µs | 40 kB |

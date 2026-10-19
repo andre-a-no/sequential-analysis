@@ -16,12 +16,12 @@ const LOG_2PI = Math.log(2.0 * Math.PI);
 const SQRT2 = Math.SQRT2;
 const TRANSFORMS: (string | null)[] = [null, "log"];
 
-function checkCoverage(coverage: number): number {
+export function checkCoverage(coverage: number): number {
   if (!(0.0 < coverage && coverage < 1.0)) invalid("coverage must lie in (0, 1)");
   return coverage;
 }
 
-function checkHorizon(horizon: number): number {
+export function checkHorizon(horizon: number): number {
   if (!(Number.isInteger(horizon) && horizon >= 1)) invalid("horizon must be a positive int");
   return horizon;
 }
@@ -108,7 +108,7 @@ function optStr(c: Config, key: string): string | null {
 function optInt(c: Config, key: string): number | null {
   return c[key] === null ? null : int(c, key);
 }
-function strs(c: Config, key: string): string[] {
+export function strs(c: Config, key: string): string[] {
   if (!(key in c)) invalid(`config is missing '${key}'`);
   const v = c[key];
   if (!Array.isArray(v) || !v.every((e) => typeof e === "string")) invalid(`config '${key}' must be a list of strings`);
@@ -118,7 +118,7 @@ const isNumber = (v: Json): v is number => typeof v === "number" && Number.isFin
 const isCount = (v: Json): v is number => isNumber(v) && Number.isInteger(v) && v >= 0;
 
 /** A state field holding a list of lists of numbers (Python's tuple[tuple[float, ...], ...]). */
-function checkMatrix(name: string, value: Json): void {
+export function checkMatrix(name: string, value: Json): void {
   if (!Array.isArray(value) || !value.every((row) => Array.isArray(row) && row.every(isNumber)))
     throw new Error(`state field '${name}' must be a list of lists of numbers, got ${JSON.stringify(value)}`);
 }
@@ -240,7 +240,7 @@ export function countQuantile(pred: Predictive, h: number, p: number): number {
 // ------------------------------------------------------------------ Bayesian regression helpers
 
 /** Cholesky factor of a symmetric positive definite matrix, pivots floored at 1e-13 of the diagonal. */
-function choleskyFloor(a: number[][]): number[][] {
+export function choleskyFloor(a: number[][]): number[][] {
   const k = a.length;
   const low = Array.from({ length: k }, () => Array.from({ length: k }, () => 0.0));
   for (let j = 0; j < k; j++) {
@@ -257,7 +257,7 @@ function choleskyFloor(a: number[][]): number[][] {
   return low;
 }
 
-function forward(low: number[][], b: number[]): number[] {
+export function forward(low: number[][], b: number[]): number[] {
   const out: number[] = [];
   for (let i = 0; i < b.length; i++) {
     let v = b[i];
@@ -267,7 +267,7 @@ function forward(low: number[][], b: number[]): number[] {
   return out;
 }
 
-function backward(low: number[][], b: number[]): number[] {
+export function backward(low: number[][], b: number[]): number[] {
   const k = b.length;
   const out = Array.from({ length: k }, () => 0.0);
   for (let i = k - 1; i >= 0; i--) {
@@ -288,13 +288,13 @@ function posterior(information: number[][], moment: number[], forgetting: number
 }
 
 /** u' M^-1 u from the Cholesky factor of M. */
-function quad(low: number[][], u: number[]): number {
+export function quad(low: number[][], u: number[]): number {
   let total = 0.0;
   for (const v of forward(low, u)) total += v * v;
   return total;
 }
 
-function accumulate(information: number[][], moment: number[], u: number[], target: number, forgetting: number): [number[][], number[]] {
+export function accumulate(information: number[][], moment: number[], u: number[], target: number, forgetting: number): [number[][], number[]] {
   const k = u.length;
   const info = Array.from({ length: k }, (_, i) =>
     Array.from({ length: k }, (_, j) => requireFinite(forgetting * information[i][j] + u[i] * u[j], "information")));
@@ -310,7 +310,7 @@ function checkInformation(information: number[][], moment: number[], k: number):
   requireState(ok, "information must be symmetric with a non-negative diagonal");
 }
 
-function checkLearning(forgetting: number, ridge: number): void {
+export function checkLearning(forgetting: number, ridge: number): void {
   if (!(0.0 < forgetting && forgetting <= 1.0)) invalid("forgetting must lie in (0, 1]");
   if (!(0.0 < ridge && ridge < Infinity)) invalid("ridge must be positive");
 }

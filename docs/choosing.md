@@ -21,10 +21,10 @@ Every procedure states its promise in its `guarantee` attribute
 | Guarantee | Meaning | Procedures |
 |---|---|---|
 | **exact** | error rates, coverage or false-alarm rates hold at every sample size, under the stated assumptions | `AnytimeLinearModel`, `AnytimeLogRankTest`, `BettingConfidenceSequence`, `BettingMeanTest`, `BoundedABTest`, `CatoniConfidenceSequence`, `ConformalForecast`, `CUSUM`, `ForecastComparison`, `GroupSequentialTest` (known sigma), `GroupSequentialTwoMeans` (known sigma), `KernelTwoSampleTest`, `MeanEDetector`, `MultipleTests`, `NormalMixtureSPRT`, `OnlineFDR`, `PlanTest`, `QuantileConfidenceSequence`, `QuantileEDetector`, `QuantileTest`, `RateRatioTest`, `SampleRatioMismatch`, `SequentialSignTest`, `ShiryaevRoberts`, `SPRT`, `TMixtureSPRT`, `TwoProportionTest`, `TwoSPRT` |
-| **asymptotic** | they hold approximately, the better the larger the sample | `ABTest`, `AsymptoticConfidenceSequence`, `GroupSequentialLogRank`, `GroupSequentialMonitor`, `GroupSequentialProportions`, `GroupSequentialTest` (estimated sigma), `GroupSequentialTwoMeans` (estimated sigma), `RatioABTest` |
-| **model** | exact probabilities under the stated model and prior; no error rate beyond the model | `AutoRegressive`, `BayesianChangePoint`, `ExponentialSmoothing`, `HiddenMarkovFilter`, `KalmanFilter`, `LocalLevelKalman`, `ModelAveraging`, `PoissonSmoothing`, `ThompsonAllocation` |
+| **asymptotic** | they hold approximately, the better the larger the sample | `ABTest`, `AsymptoticConfidenceSequence`, `EventStudy`, `GroupSequentialLogRank`, `GroupSequentialMonitor`, `GroupSequentialProportions`, `GroupSequentialTest` (estimated sigma), `GroupSequentialTwoMeans` (estimated sigma), `RatioABTest` |
+| **model** | exact probabilities under the stated model and prior; no error rate beyond the model | `AutoRegressive`, `BayesianChangePoint`, `DynamicRegression`, `ExponentialSmoothing`, `HawkesProcess`, `HiddenMarkovFilter`, `KalmanFilter`, `LocalLevelKalman`, `ModelAveraging`, `PoissonSmoothing`, `ThompsonAllocation`, `VectorAutoRegressive` |
 | **approximate** | an approximation even under the model (Monte Carlo, variational, stochastic approximation) | `BootstrapParticleFilter`, `OnlineHMM`, `ParticleFilter`, `RobustKalmanFilter` |
-| **none** | a transformation of the data; no inferential claim | `EMA`, `MeanDifference` |
+| **none** | a transformation of the data; no inferential claim | `CrossCorrelation`, `EMA`, `MeanDifference` |
 <!-- /guarantees -->
 
 ## First: may you look at any time, or only at planned analyses?
@@ -121,6 +121,22 @@ same data.
 
 The [forecasting tutorial](tutorials/forecasting.md) runs both kinds of
 training on the same data, before and after a change.
+
+## Several series and event streams
+
+| Question | Procedure | Guarantee |
+|---|---|---|
+| which series leads, by how many steps? | `CrossCorrelation` (correlations at lags -L..L, with forgetting) | descriptive |
+| does x's past improve the forecast of y? (Granger) | `Lagged` around `AnytimeLinearModel`; many pairs or lags: `OnlineFDR` | exact under the regression model |
+| forecast several series together | `fit_var` on a history, `VectorAutoRegressive` on the stream | under the model |
+| a hedge ratio or beta that drifts, the spread of a pair | `DynamicRegression` | under the model |
+| has a relationship broken? | `QuantileEDetector` or `MeanEDetector` on the spread or the residuals | approximate when they are autocorrelated |
+| events in bursts (news, trades, alerts) | `fit_hawkes`, `HawkesProcess`; a change of the flow: an e-detector on its compensators | under the model |
+| attach irregular events to regular bars without look-ahead | the `AsOfJoin` topology | — |
+| how does a series move after events? | `EventStudy` | asymptotic |
+
+Tutorials: [several series](tutorials/multivariate.md),
+[a news stream](tutorials/news.md).
 
 ## Means of data that are not normal
 

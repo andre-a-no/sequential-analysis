@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from sequential_analysis import backend  # noqa: E402
+from sequential_analysis import Lagged, backend  # noqa: E402
 from sequential_analysis.procedures import (  # noqa: E402
     CUSUM,
     EMA,
@@ -46,6 +46,9 @@ from sequential_analysis.procedures import (  # noqa: E402
     BoundedABTest,
     CatoniConfidenceSequence,
     ConformalForecast,
+    CrossCorrelation,
+    DynamicRegression,
+    EventStudy,
     ExponentialSmoothing,
     ForecastComparison,
     Gaussian,
@@ -55,6 +58,7 @@ from sequential_analysis.procedures import (  # noqa: E402
     GroupSequentialProportions,
     GroupSequentialTest,
     GroupSequentialTwoMeans,
+    HawkesProcess,
     HiddenMarkovFilter,
     KalmanFilter,
     KernelTwoSampleTest,
@@ -83,6 +87,7 @@ from sequential_analysis.procedures import (  # noqa: E402
     TMixtureSPRT,
     TwoProportionTest,
     TwoSPRT,
+    VectorAutoRegressive,
     averaged_counts,
     averaged_smoothing,
 )
@@ -129,6 +134,34 @@ def count(rnd):
 
 def loss_pair(rnd):
     return {"a": rnd.random(), "b": rnd.random()}
+
+
+def three_series(rnd):
+    return {"a": rnd.gauss(0.0, 1.0), "b": rnd.gauss(0.0, 1.0), "c": rnd.gauss(0.0, 1.0)}
+
+
+def regression_pair(rnd):
+    x = rnd.gauss(0.0, 1.0)
+    return {"x": x, "y": 1.5 * x + rnd.gauss(0.0, 0.3)}
+
+
+def granger_pair(rnd):
+    return {"x": rnd.gauss(0.0, 1.0), "y": rnd.gauss(0.0, 1.0)}
+
+
+class _Clock:
+    """Increasing event times: the generator keeps the last one."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self, rnd):
+        self.t += rnd.expovariate(1.0)
+        return {"t": self.t}
+
+
+def abnormal_return(rnd):
+    return {"r": rnd.gauss(0.0, 1.0), "event": int(rnd.random() < 0.05)}
 
 
 def two_d(rnd):
@@ -249,6 +282,16 @@ CASES = [
      (100,), False),
     ("PoissonSmoothing, 7 ahead", lambda b: PoissonSmoothing(0.9, horizon=7), count, (100,), False),
     ("averaged_counts (8 discounts)", lambda b: averaged_counts(), count, (100,), False),
+    ("VectorAutoRegressive, 3 series, order 2, learnt, 5 ahead",
+     lambda b: VectorAutoRegressive(("a", "b", "c"), 2, forgetting=0.99, horizon=5), three_series, (100,), False),
+    ("CrossCorrelation, lags -10..10", lambda b: CrossCorrelation(max_lag=10, forgetting=0.99), pair, (100,), False),
+    ("DynamicRegression, intercept and 1 regressor", lambda b: DynamicRegression(("x",)), regression_pair, (100,),
+     False),
+    ("Lagged AnytimeLinearModel, Granger test with 3 lags",
+     lambda b: Lagged(AnytimeLinearModel(["y_lag1", "y_lag2", "y_lag3"], ["x_lag1", "x_lag2", "x_lag3"]),
+                      {"x": 3, "y": 3}), granger_pair, (100,), False),
+    ("HawkesProcess", lambda b: HawkesProcess(0.5, 0.4, 1.0, window=1.0), _Clock(), (100,), False),
+    ("EventStudy, 10 steps", lambda b: EventStudy(10), abnormal_return, (1000,), False),
     ("ThompsonAllocation, 3 binary arms, split every unit",
      lambda b: ThompsonAllocation(3, min_units=10, update_every=1), three_arms, (1000,), False),
     ("BoundedABTest with propensities, grid 1000",

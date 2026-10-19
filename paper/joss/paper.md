@@ -49,10 +49,14 @@ systems all work this way. `sequential-analysis` is a Python library
     experiments [@wang2022ebh; @xu2024online];
 * change-point detection by CUSUM [@page1954], Shiryaev–Roberts, e-detectors
   [@shin2024edetectors] and Bayesian online change points [@adams2007];
-* Kalman, particle and hidden Markov filters with smoothing.
-* Forecasting (exponential smoothing, autoregression with regressors,
-  counts) with parameters fitted to a history or learnt on the stream,
-  conformal intervals, and an anytime-valid comparison of forecasters.
+* Kalman, particle and hidden Markov filters with smoothing;
+* forecasting (exponential smoothing, autoregression with regressors,
+  counts, vector autoregression) with parameters fitted to a history or
+  learnt on the stream, conformal intervals, and an anytime-valid
+  comparison of forecasters;
+* several series and event streams: Granger tests on lagged inputs,
+  regression on drifting coefficients, Hawkes processes, event studies,
+  and an as-of join of irregular events to regular bars.
 
 Each procedure is a pure state-transition function
 $F(S, X, R) \to (S', O, R')$ of its state, an observation and a random
@@ -61,8 +65,8 @@ delivers observations, and writes checkpoints. A run restored from a
 checkpoint continues bit for bit as if it had never stopped. A history
 digest in RFC 8785 canonical JSON [@rfc8785] records exactly which data
 produced a decision. A specification of the formats and a TypeScript
-executor let a run move between languages: 92 conformance vectors are
-reproduced, 28 bit for bit and the rest to $6\cdot10^{-13}$.
+executor let a run move between languages: 105 conformance vectors are
+reproduced, 34 bit for bit and the rest to $6\cdot10^{-13}$.
 
 # Statement of need
 

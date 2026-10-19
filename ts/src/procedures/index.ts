@@ -10,6 +10,7 @@ export { CUSUM } from "./cusum.js";
 export { lgamma, erfc, regularizedBeta, tCdf, tIsfLog } from "./distributions.js";
 export { MeanEDetector, QuantileEDetector } from "./edetector.js";
 export { EMA } from "./ema.js";
+export { EventStudy, HawkesProcess } from "./events.js";
 export { Bernoulli, Exponential, type Family, familyFromSpec, Gaussian, Poisson } from "./families.js";
 export {
   AutoRegressive, averagedCounts, type AveragedCountsOptions, averagedSmoothing, type AveragedSmoothingOptions, ConformalForecast,
@@ -28,6 +29,7 @@ export {
 export { LocalLevelKalman } from "./kalman.js";
 export { AnytimeLinearModel } from "./linear_model.js";
 export { NormalMixtureSPRT } from "./mixture.js";
+export { CrossCorrelation, DynamicRegression, multivariateTLogDensity, VectorAutoRegressive, type VARForecast } from "./multivariate.js";
 export { defaultGamma, OnlineFDR } from "./online_fdr.js";
 export { OnlineHMM } from "./online_hmm.js";
 export { BootstrapParticleFilter } from "./particle.js";
@@ -48,3 +50,4 @@ export { MeanDifference } from "./two_sample.js";
 export { KernelTwoSampleTest } from "./two_sample_betting.js";
 export { kieferWeissPoint, TwoSPRT } from "./two_sprt.js";
 export { ACCEPT_H0, REJECT_H0 } from "./util.js";
+export { Lagged, lagName } from "../pipeline.js";
