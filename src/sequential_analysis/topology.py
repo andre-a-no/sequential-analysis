@@ -12,16 +12,17 @@ Confluence
 ----------
 An operator is *confluent* if its output sequence depends only on the
 per-input order of observations, not on how the inputs interleave.
-PositionalPair and TimeAlign are confluent.  Independent and KeyJoin are
-not: their output order follows arrival (or completion) order, so the
-ordering policy is part of the experiment and is recorded in provenance.
+PositionalPair and TimeAlign are confluent.  Independent, KeyJoin and
+AsOfJoin are not: their output follows arrival (or completion) order, so
+the ordering policy is part of the experiment and is recorded in
+provenance.
 """
 from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -200,6 +201,119 @@ class TimeAlign(_Buffered):
         self._queues = {n: deque(tuple(item) for item in state["queues"][n]) for n in self.inputs}
         self._last = {n: state["last"][n] for n in self.inputs}
         self.unmatched = int(state["unmatched"])
+
+
+class AsOfJoin(Topology):
+    """Attach to every bar what a stream of events said up to the bar's time.
+
+    `bars` is a regular stream (prices, returns); `events` an irregular one
+    (news items scored by sentiment, trades, alerts), each event a number.
+    Every bar is emitted at once, with its value -- a number under the
+    name `bars`, or a mapping of named numbers -- and, for the events that
+    arrived since the previous bar and whose time is not after the bar's:
+
+        <prefix>_count   how many there were
+        <prefix>_sum     the sum of their values
+
+    and with a `half_life`, the influence of all events so far, each
+    decaying by half every half_life units of time:
+
+        <prefix>_decayed        sum of value * 2^-(bar time - event time) / half_life
+        <prefix>_decayed_count  the same with every value 1
+
+    An event whose time is after the bar waits for a later bar.  An event
+    that arrives after a bar later than its own time goes to the next bar
+    and is counted as late: the bar could not have known it.  So a bar
+    never sees an event that had not arrived when it did, and to rule out
+    look-ahead in a replay the event's time must be when it became
+    available (received, parsed and scored), not when it was published.
+    Times must not decrease within either input.
+
+    Not confluent: what a bar sees depends on which events arrived before
+    it, so a replay must deliver both inputs in their original order.
+    """
+
+    def __init__(self, bars: str, events: str, *, half_life: float | None = None, prefix: str | None = None):
+        if not (isinstance(bars, str) and bars and isinstance(events, str) and events) or bars == events:
+            raise ValueError("bars and events must be two distinct non-empty input names")
+        if half_life is not None and (type(half_life) not in (int, float) or not 0 < half_life < math.inf):
+            raise ValueError("half_life must be a positive finite number or None")
+        if prefix is not None and not (isinstance(prefix, str) and prefix):
+            raise ValueError("prefix must be a non-empty string or None")
+        self.bars, self.events = bars, events
+        self.half_life = None if half_life is None else float(half_life)
+        self.prefix = prefix if prefix is not None else events
+        self.inputs = (bars, events)
+        self.fields = tuple(f"{self.prefix}_{f}" for f in
+                            (("count", "sum") + (("decayed", "decayed_count") if half_life is not None else ())))
+        self._pending: deque = deque()  # (time, value) of events not yet given to a bar, oldest first
+        self._last_bar: float | None = None
+        self._last_event: float | None = None
+        self._decayed = self._decayed_count = 0.0
+        self.late = 0
+
+    def spec(self) -> dict:
+        return {"type": "as_of_join", "bars": self.bars, "events": self.events, "half_life": self.half_life,
+                "prefix": self.prefix}
+
+    @staticmethod
+    def _number(v: Any) -> bool:
+        return type(v) in (int, float) and math.isfinite(v)
+
+    def push(self, obs: Observation) -> list[dict]:
+        if obs.input not in self.inputs:
+            raise ContractViolation(f"observation for input {obs.input!r} is not part of this topology")
+        if obs.time is None:
+            raise ContractViolation("an as-of join needs an event time on every observation")
+        if obs.input == self.events:
+            if not self._number(obs.value):
+                raise ContractViolation(f"input {self.events!r}: an event's value must be a finite number")
+            if self._last_event is not None and obs.time < self._last_event:
+                raise OrderingError(f"input {self.events!r}: event time went backwards "
+                                    f"({obs.time} < {self._last_event})")
+            self._last_event = obs.time
+            self._pending.append((obs.time, obs.value))
+            return []
+        if self._last_bar is not None and obs.time < self._last_bar:
+            raise OrderingError(f"input {self.bars!r}: event time went backwards ({obs.time} < {self._last_bar})")
+        if isinstance(obs.value, Mapping):
+            row = dict(obs.value)
+            clash = sorted(set(row) & set(self.fields))
+            if clash:
+                raise ContractViolation(f"input {self.bars!r}: fields {clash} are the join's own")
+        else:
+            row = {self.bars: obs.value}
+        now = obs.time
+        count, total, decayed, decayed_count = 0, 0.0, self._decayed, self._decayed_count
+        if self.half_life is not None and self._last_bar is not None:
+            f = 2.0 ** (-(now - self._last_bar) / self.half_life)
+            decayed, decayed_count = decayed * f, decayed_count * f
+        while self._pending and self._pending[0][0] <= now:
+            t, v = self._pending.popleft()
+            if self._last_bar is not None and t <= self._last_bar:
+                self.late += 1
+            count += 1
+            total += v
+            if self.half_life is not None:
+                w = 2.0 ** (-(now - t) / self.half_life)
+                decayed += v * w
+                decayed_count += w
+        self._last_bar, self._decayed, self._decayed_count = now, decayed, decayed_count
+        row[self.fields[0]], row[self.fields[1]] = count, total
+        if self.half_life is not None:
+            row[self.fields[2]], row[self.fields[3]] = decayed, decayed_count
+        return [row]
+
+    def state(self) -> Any:
+        return {"pending": [[t, v] for t, v in self._pending], "last_bar": self._last_bar,
+                "last_event": self._last_event, "decayed": self._decayed, "decayed_count": self._decayed_count,
+                "late": self.late}
+
+    def restore(self, state: Any) -> None:
+        self._pending = deque((t, v) for t, v in state["pending"])
+        self._last_bar, self._last_event = state["last_bar"], state["last_event"]
+        self._decayed, self._decayed_count = float(state["decayed"]), float(state["decayed_count"])
+        self.late = int(state["late"])
 
 
 @dataclass(frozen=True)

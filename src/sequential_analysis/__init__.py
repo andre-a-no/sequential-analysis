@@ -30,15 +30,16 @@ from .errors import (
 )
 from .numerics import equivalent
 from .persistence import load_checkpoint, save_checkpoint
-from .pipeline import Chain
+from .pipeline import Chain, Lagged, lag_name
 from .rng import SplitMix64
 from .run import Run, RunStatus, checkpoint_id, validate_checkpoint
 from .runtime import run_async, run_sync
-from .topology import Independent, KeyJoin, PositionalPair, TimeAlign, difference
+from .topology import AsOfJoin, Independent, KeyJoin, PositionalPair, TimeAlign, difference
 from .transforms import Difference, Field, Transform
 from .version import __version__
 
 __all__ = [
+    "AsOfJoin",
     "Chain",
     "ContractViolation",
     "Delivery",
@@ -50,6 +51,7 @@ __all__ = [
     "InvalidInputStreak",
     "JsonlSink",
     "KeyJoin",
+    "Lagged",
     "LifecycleError",
     "NumericalError",
     "Observation",
@@ -68,6 +70,7 @@ __all__ = [
     "checkpoint_id",
     "difference",
     "equivalent",
+    "lag_name",
     "load_checkpoint",
     "run_async",
     "run_sync",
