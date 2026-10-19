@@ -6,13 +6,20 @@ change the checkpoint, log and cache formats, which are versioned
 separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
 `.design-cache/1`).
 
-## Unreleased
+## 0.4.0 — 2026-10-19
 
-Several series at once and streams of events: vector autoregression,
-lead-lag correlations and Granger tests, regression with drifting
-coefficients for pairs, Hawkes processes for bursts of events, event
-studies, and an as-of join of irregular events to regular bars. Two
-tutorials, on pairs and lead-lag strategies and on a news stream.
+The first release on PyPI since 0.2.0: it also brings everything listed
+under 0.3.0, which was tagged on GitHub but not published on PyPI.
+
+Group sequential trials for any endpoint, checked against rpact and R's
+survival package; ratio metrics; stratified log-rank tests; hidden Markov
+models that learn their parameters; forecasting with fixed or continuous
+training; several series at once (vector autoregression, lead-lag
+correlations and Granger tests, regression with drifting coefficients for
+pairs) and streams of events (Hawkes processes, event studies, an as-of
+join of irregular events to regular bars); redirecting traffic during an
+experiment; a `guarantee` on every procedure; plots; property-based
+tests; a guide to choosing a method.
 
 ### Added: several series
 - `Lagged`: runs any procedure with the recent past of some inputs as
@@ -58,18 +65,6 @@ tutorials, on pairs and lead-lag strategies and on a news stream.
 - Tutorials: "Several series: lead, lag and pairs" and "A news stream
   and the market". The which-method page has a section on several
   series and event streams.
-
-## 0.4.0 — 2026-10-16
-
-The first release on PyPI since 0.2.0: it also brings everything listed
-under 0.3.0, which was tagged on GitHub but not published on PyPI.
-
-Group sequential trials for any endpoint, checked against rpact and R's
-survival package; ratio metrics; stratified log-rank tests; hidden Markov
-models that learn their parameters; forecasting with fixed or continuous
-training; redirecting traffic during an experiment; a `guarantee` on
-every procedure; plots; property-based tests; a guide to choosing a
-method.
 
 ### Added: group sequential trials for any endpoint
 - `GroupSequentialTwoMeans` (continuous endpoint in two arms, known
