@@ -393,7 +393,7 @@ Sums and products are reproduced exactly when they are evaluated in the
 reference order. Every procedure's sums are left-to-right or
 Neumaier-compensated, never pairwise. Decisions are compared exactly.
 
-In the TypeScript executor, 34 of the 105 cases agree bit for bit. The
+In the TypeScript executor, 34 of the 108 cases agree bit for bit. The
 others differ in the last bits only: by at most 5e-14 relative, except
 in thirteen cases. Every such difference was traced to `Math.log`, `log1p`,
 `exp`, `expm1` or `cos` rounding differently from the C library. In

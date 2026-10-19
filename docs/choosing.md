@@ -22,7 +22,7 @@ Every procedure states its promise in its `guarantee` attribute
 |---|---|---|
 | **exact** | error rates, coverage or false-alarm rates hold at every sample size, under the stated assumptions | `AnytimeLinearModel`, `AnytimeLogRankTest`, `BettingConfidenceSequence`, `BettingMeanTest`, `BoundedABTest`, `CatoniConfidenceSequence`, `ConformalForecast`, `CUSUM`, `ForecastComparison`, `GroupSequentialTest` (known sigma), `GroupSequentialTwoMeans` (known sigma), `KernelTwoSampleTest`, `MeanEDetector`, `MultipleTests`, `NormalMixtureSPRT`, `OnlineFDR`, `PlanTest`, `QuantileConfidenceSequence`, `QuantileEDetector`, `QuantileTest`, `RateRatioTest`, `SampleRatioMismatch`, `SequentialSignTest`, `ShiryaevRoberts`, `SPRT`, `TMixtureSPRT`, `TwoProportionTest`, `TwoSPRT` |
 | **asymptotic** | they hold approximately, the better the larger the sample | `ABTest`, `AsymptoticConfidenceSequence`, `EventStudy`, `GroupSequentialLogRank`, `GroupSequentialMonitor`, `GroupSequentialProportions`, `GroupSequentialTest` (estimated sigma), `GroupSequentialTwoMeans` (estimated sigma), `RatioABTest` |
-| **model** | exact probabilities under the stated model and prior; no error rate beyond the model | `AutoRegressive`, `BayesianChangePoint`, `DynamicRegression`, `ExponentialSmoothing`, `HawkesProcess`, `HiddenMarkovFilter`, `KalmanFilter`, `LocalLevelKalman`, `ModelAveraging`, `PoissonSmoothing`, `ThompsonAllocation`, `VectorAutoRegressive` |
+| **model** | exact probabilities under the stated model and prior; no error rate beyond the model | `AutoRegressive`, `BayesianChangePoint`, `DynamicRegression`, `ExponentialSmoothing`, `GARCH`, `HawkesProcess`, `HiddenMarkovFilter`, `KalmanFilter`, `LocalLevelKalman`, `ModelAveraging`, `PoissonSmoothing`, `ThompsonAllocation`, `VectorAutoRegressive` |
 | **approximate** | an approximation even under the model (Monte Carlo, variational, stochastic approximation) | `BootstrapParticleFilter`, `OnlineHMM`, `ParticleFilter`, `RobustKalmanFilter` |
 | **none** | a transformation of the data; no inferential claim | `CrossCorrelation`, `EMA`, `MeanDifference` |
 <!-- /guarantees -->
@@ -134,9 +134,10 @@ training on the same data, before and after a change.
 | events in bursts (news, trades, alerts) | `fit_hawkes`, `HawkesProcess`; a change of the flow: an e-detector on its compensators | under the model |
 | attach irregular events to regular bars without look-ahead | the `AsOfJoin` topology | — |
 | how does a series move after events? | `EventStudy` | asymptotic |
+| volatility, value at risk | `fit_garch` on a history, then `GARCH` (normal or Student t, optional leverage) | under the model; agrees with arch |
 
 Tutorials: [several series](tutorials/multivariate.md),
-[a news stream](tutorials/news.md).
+[a news stream](tutorials/news.md), [volatility](tutorials/volatility.md).
 
 ## Means of data that are not normal
 

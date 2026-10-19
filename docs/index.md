@@ -21,6 +21,8 @@ The library has these kinds of methods:
 * **Several series and events:** lead-lag correlations and Granger
   tests, drifting regressions for pairs, Hawkes processes, event studies,
   and an as-of join of news to price bars.
+* **Volatility:** GARCH and GJR-GARCH with normal or Student t shocks,
+  for variance forecasts and value at risk.
 
 Every run can be checkpointed as plain JSON and resumed exactly. A run
 can also be resumed by the [TypeScript executor](typescript.md), and

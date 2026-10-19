@@ -6,6 +6,26 @@ change the checkpoint, log and cache formats, which are versioned
 separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
 `.design-cache/1`).
 
+## Unreleased
+
+### Added: volatility
+- `GARCH`: the GARCH(1,1) filter, with an optional leverage term (GJR),
+  normal or Student t shocks. Each step gives the predictive density,
+  the standardized residual, the expected variances of the next
+  `horizon` returns, the standard deviation of their sum and the
+  interval of each.
+- `fit_garch`: maximum likelihood as the arch package computes it (its
+  backcast, held fixed). It reaches arch's maximum, and its filter
+  reproduces arch's conditional volatility and variance forecasts to
+  1e-10.
+- Tutorial "Volatility and value at risk": the fit, 1- and 10-day risk, a
+  test by betting of the breach rate, and a detector on the residuals
+  that notices a crisis.
+
+### Release
+- The release workflow refuses a commit whose changelog still has an
+  Unreleased section.
+
 ## 0.4.0 — 2026-10-19
 
 The first release on PyPI since 0.2.0: it also brings everything listed

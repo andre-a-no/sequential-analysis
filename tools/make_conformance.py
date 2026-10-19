@@ -29,10 +29,12 @@ from sequential_analysis import Lagged, Run  # noqa: E402
 from sequential_analysis.canonical import _number, canonical_json  # noqa: E402
 from sequential_analysis.events import simulate_hawkes  # noqa: E402
 from sequential_analysis.forecasting import fit_var  # noqa: E402
+from sequential_analysis.garch_fit import fit_garch  # noqa: E402
 from sequential_analysis.group_sequential import group_sequential_design  # noqa: E402
 from sequential_analysis.procedures import (  # noqa: E402
     CUSUM,
     EMA,
+    GARCH,
     SPRT,
     ABTest,
     AnytimeLinearModel,
@@ -698,8 +700,30 @@ def cases():
         ("event_study_overlap", EventStudy(2, alpha=0.1, start=3, overlap="allow", returns="ar", event="news"),
          None, [{"ar": r["r"], "news": r["event"]} for r in study_rows[:120]]),
     ]
+    rv = random.Random(20261021)  # volatility's own stream
+
+    def garch_returns(n, omega=0.05, alpha=0.08, beta=0.9, gamma=0.0, df=None):
+        v, out = omega / (1.0 - alpha - beta - 0.5 * gamma), []
+        for _ in range(n):
+            z = rv.gauss(0.0, 1.0)
+            if df is not None:
+                z = z / math.sqrt(rv.gammavariate(df / 2.0, 2.0 / df)) * math.sqrt((df - 2.0) / df)
+            e = math.sqrt(v) * z
+            out.append({"r": 0.02 + e})
+            v = omega + alpha * e * e + beta * v + (gamma * e * e if e < 0.0 else 0.0)
+        return out
+
+    gjr_history = garch_returns(300, alpha=0.03, gamma=0.1, df=7.0)
+    gjr_fit = fit_garch(gjr_history[:250], distribution="t", asymmetric=True, horizon=5).model
+    volatility = [
+        ("garch_normal", GARCH(0.05, 0.08, 0.9, mean=0.02, horizon=3), None, garch_returns(80)),
+        ("garch_t_fitted_gjr", gjr_fit, None, gjr_history[250:]),
+        ("garch_initial_variance", GARCH(0.1, 0.15, 0.8, gamma=0.05, distribution="t", df=4.5, initial_variance=2.5,
+                                          coverage=0.99, input="ret"), None,
+         [{"ret": r["r"]} for r in garch_returns(60, df=5.0)]),
+    ]
     return (existing + added + ported + later + round_four + stratified_logrank + ratio + online_hmm + emissions
-            + forecasting + inputs_round + traffic + several)
+            + forecasting + inputs_round + traffic + several + volatility)
 
 
 def vector(label, procedure, seed, inputs):

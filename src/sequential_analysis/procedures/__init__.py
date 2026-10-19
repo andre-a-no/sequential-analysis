@@ -64,11 +64,13 @@ from .t_mixture import TMixtureSPRT
 from .two_sample import MeanDifference
 from .two_sample_betting import KernelTwoSampleTest
 from .two_sprt import TwoSPRT, kiefer_weiss_point
+from .volatility import GARCH
 
 __all__ = [
     "ACCEPT_H0",
     "CUSUM",
     "EMA",
+    "GARCH",
     "REJECT_H0",
     "SPRT",
     "ABTest",

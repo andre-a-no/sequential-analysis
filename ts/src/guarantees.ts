@@ -28,6 +28,7 @@ export const PROCEDURE_GUARANTEES: Record<string, Guarantee | Record<string, Gua
   event_study: "asymptotic",
   exponential_smoothing: "model",
   forecast_comparison: "exact",
+  garch: "model",
   group_sequential_logrank: "asymptotic",
   group_sequential_monitor: "asymptotic",
   group_sequential_proportions: "asymptotic",
