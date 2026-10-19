@@ -21,8 +21,11 @@ export const PROCEDURE_GUARANTEES: Record<string, Guarantee | Record<string, Gua
   bounded_ab_test: "exact",
   catoni_confidence_sequence: "exact",
   conformal_forecast: "exact",
+  cross_correlation: "none",
   cusum: "exact",
+  dynamic_regression: "model",
   ema: "none",
+  event_study: "asymptotic",
   exponential_smoothing: "model",
   forecast_comparison: "exact",
   group_sequential_logrank: "asymptotic",
@@ -30,6 +33,7 @@ export const PROCEDURE_GUARANTEES: Record<string, Guarantee | Record<string, Gua
   group_sequential_proportions: "asymptotic",
   group_sequential_test: { "known sigma": "exact", "estimated sigma": "asymptotic" },
   group_sequential_two_means: { "known sigma": "exact", "estimated sigma": "asymptotic" },
+  hawkes_process: "model",
   hidden_markov_filter: "model",
   kalman_filter: "model",
   kernel_two_sample_test: "exact",
@@ -58,4 +62,8 @@ export const PROCEDURE_GUARANTEES: Record<string, Guarantee | Record<string, Gua
   thompson_allocation: "model",
   two_proportion_test: "exact",
   two_sprt: "exact",
+  vector_autoregressive: "model",
 };
+
+/** Composite procedures, whose guarantee is the one of the procedure they wrap (not listed in guarantees.json). */
+export const COMPOSITE_PROCEDURES: readonly string[] = ["lagged"];

@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { GUARANTEES, PROCEDURE_GUARANTEES } from "../src/guarantees.js";
+import { COMPOSITE_PROCEDURES, GUARANTEES, PROCEDURE_GUARANTEES } from "../src/guarantees.js";
 import { registered } from "../src/procedure.js";
 import "../src/procedures/index.js";
 
@@ -18,6 +18,7 @@ test("the guarantees are Python's", () => {
 test("every registered procedure has a known guarantee", () => {
   for (const key of registered()) {
     const name = key.split("/")[0];
+    if (COMPOSITE_PROCEDURES.includes(name)) continue; // the guarantee of the procedure inside
     const g = PROCEDURE_GUARANTEES[name];
     assert.ok(g !== undefined, name);
     for (const v of typeof g === "string" ? [g] : Object.values(g)) assert.ok((GUARANTEES as readonly string[]).includes(v), name);

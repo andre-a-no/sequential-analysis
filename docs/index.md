@@ -4,7 +4,7 @@ Sequential statistical inference in Python: tests and estimates that may
 be looked at after every observation and stopped at any time, with their
 error guarantees intact.
 
-The library has four kinds of methods:
+The library has these kinds of methods:
 
 * **Classical sequential tests:** Wald's SPRT, Lorden's 2-SPRT, optimal
   Kiefer–Weiss plans, group sequential trials with spending functions.
@@ -15,6 +15,12 @@ The library has four kinds of methods:
   e-detectors and Bayesian online change points.
 * **Filters and smoothers:** Kalman (including a robust one), hidden
   Markov models and particle filters.
+* **Forecasting:** exponential smoothing, autoregressions and vector
+  autoregressions, fitted on a history or learnt on the stream, with
+  conformal intervals and anytime-valid comparisons.
+* **Several series and events:** lead-lag correlations and Granger
+  tests, drifting regressions for pairs, Hawkes processes, event studies,
+  and an as-of join of news to price bars.
 
 Every run can be checkpointed as plain JSON and resumed exactly. A run
 can also be resumed by the [TypeScript executor](typescript.md), and

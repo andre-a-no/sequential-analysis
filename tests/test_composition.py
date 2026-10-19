@@ -17,6 +17,7 @@ import unittest
 
 from sequential_analysis import AsOfJoin, Lagged, Observation, Run, lag_name
 from sequential_analysis.errors import ContractViolation, OrderingError
+from sequential_analysis.numerics import portable_exp2
 from sequential_analysis.procedures import AnytimeLinearModel, DynamicRegression
 
 
@@ -107,6 +108,18 @@ def news_stream(n_bars, seed):
     events += [("news", v, s) for s, v in news if s <= n_bars]
     events.sort(key=lambda e: (e[2], e[0] == "r"))
     return events
+
+
+class PortableExp2(unittest.TestCase):
+    def test_close_to_pow(self):
+        rnd = random.Random(1)
+        for _ in range(20000):
+            x = rnd.uniform(-60.0, 10.0)
+            self.assertLessEqual(abs(portable_exp2(x) - 2.0 ** x), 4.5e-16 * 2.0 ** x)  # two units in the last place
+        self.assertEqual([portable_exp2(v) for v in (-1.0, 0.0, 3.0, -1074.0, -2000.0)],
+                         [0.5, 1.0, 8.0, 5e-324, 0.0])
+        with self.assertRaises(ValueError):
+            portable_exp2(math.nan)
 
 
 class AsOf(unittest.TestCase):

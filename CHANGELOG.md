@@ -6,6 +6,59 @@ change the checkpoint, log and cache formats, which are versioned
 separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
 `.design-cache/1`).
 
+## Unreleased
+
+Several series at once and streams of events: vector autoregression,
+lead-lag correlations and Granger tests, regression with drifting
+coefficients for pairs, Hawkes processes for bursts of events, event
+studies, and an as-of join of irregular events to regular bars. Two
+tutorials, on pairs and lead-lag strategies and on a news stream.
+
+### Added: several series
+- `Lagged`: runs any procedure with the recent past of some inputs as
+  extra inputs (`x_lag1`, `x_lag2`, ...). The past is part of the state,
+  so it is checkpointed. Around `AnytimeLinearModel` it is an
+  anytime-valid Granger test of whether one series leads another.
+- `VectorAutoRegressive`: VAR(p) forecasts of several series, with fixed
+  coefficients or learnt online. Learnt, the coefficients and the noise
+  covariance have the conjugate normal-inverse-Wishart posterior with
+  exponential forgetting, and the one-step forecasts are multivariate
+  Student t. With one series it is `AutoRegressive` (checked to 1e-12).
+- `fit_var`: least-squares VAR(p) with the order chosen by AIC. It
+  reproduces statsmodels' VAR: coefficients, covariance, log-likelihood,
+  chosen order, forecasts and their variances (to 1e-10).
+- `CrossCorrelation`: correlations of a_t with b_{t-lag} for lags -L..L,
+  with forgetting, and the lag of the strongest one. It describes and
+  does not test.
+- `DynamicRegression`: regression on coefficients that drift as a random
+  walk, the discount dynamic linear model with unknown variance (West and
+  Harrison 1997), in Joseph form. It gives a hedge ratio or a
+  time-varying beta and the standardized spread `z`.
+
+### Added: streams of events
+- `AsOfJoin` topology: attaches to each bar the events that had arrived
+  before it and are not later than it. It reports their count and the
+  sum of their values and, with a half-life, decayed sums. An event that
+  arrives after its bar goes to the next bar and is counted as late. A
+  bar never sees an event that arrived after it, so a replay keyed on
+  availability times does not look ahead.
+- `HawkesProcess`: the exact filter of a Hawkes process with an
+  exponential kernel. It reports the intensity, the log-likelihood in
+  O(1) per event, the time-rescaled compensators (standard exponential
+  under the model, for monitoring) and the expected number of events in
+  a window with their cascades.
+- `fit_hawkes` (maximum likelihood) and `simulate_hawkes` (Ogata
+  thinning).
+- `EventStudy`: average cumulative reaction over the steps after an
+  event. Each horizon gets an asymptotic confidence sequence, and all
+  horizons hold together. Overlapping events are skipped (and counted)
+  by default.
+
+### Documentation
+- Tutorials: "Several series: lead, lag and pairs" and "A news stream
+  and the market". The which-method page has a section on several
+  series and event streams.
+
 ## 0.4.0 — 2026-10-16
 
 The first release on PyPI since 0.2.0: it also brings everything listed

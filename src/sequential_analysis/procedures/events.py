@@ -231,10 +231,11 @@ class EventStudy(Procedure):
                 active.append(cum)
                 continue
             events += 1
+            frac = (events - 1) / events
             for h, v in enumerate(cum):
                 delta = v - mean[h]
                 mean[h] += delta / events
-                m2[h] += delta * (v - mean[h])
+                m2[h] += frac * delta * delta  # Welford's delta (v - new mean), never negative
         skipped = state.skipped
         if happened:
             if self.overlap == "skip" and active:

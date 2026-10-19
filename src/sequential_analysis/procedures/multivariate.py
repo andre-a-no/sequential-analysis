@@ -39,7 +39,9 @@ as a random walk -- the hedge ratio of a pair of assets, a time-varying
 beta.  It is the dynamic linear model with discount factor delta and an
 unknown observation variance learnt alongside (West and Harrison 1997,
 sections 4.5 and 6.3): the coefficients' covariance is inflated by 1/delta
-before each observation, and the one-step forecast of y is Student t.  Its
+before each observation (the update is in Joseph form, which keeps it
+positive semi-definite in floating point), and the one-step forecast of y
+is Student t.  Its
 standardized forecast error z is the spread signal of pairs trading.
 
 Cost per step (PERFORMANCE.md): VectorAutoRegressive is O(k^3 + k^2 d) for
@@ -421,9 +423,10 @@ class CrossCorrelation(Procedure):
         da, db = a - ma, b - mb
         ma += da / w
         mb += db / w
-        caa = lam * caa + da * (a - ma)
-        cbb = lam * cbb + db * (b - mb)
-        cab = lam * cab + da * (b - mb)
+        frac = (w - 1.0) / w  # the old weight's share: lambda w_old / w
+        caa = lam * caa + frac * da * da
+        cbb = lam * cbb + frac * db * db
+        cab = lam * cab + frac * da * db
         return tuple(require_finite(v, "cross moments") for v in (w, w2, ma, mb, caa, cbb, cab))
 
     def step(self, state: CrossCorrelationState, x, rng=None):
@@ -554,7 +557,11 @@ class DynamicRegression(Procedure):
             log_lik, comp = neumaier_add(log_lik, comp, score)
         gain = [v / q for v in rf]
         mean = tuple(require_finite(m + g * error, "coefficients") for m, g in zip(state.mean, gain))
-        cov = la.symmetrize(tuple(tuple(r[i][j] - gain[i] * gain[j] * q for j in range(k)) for i in range(k)))
+        # Joseph form, (I - g f') R (I - g f')' + g g': positive semi-definite in floating point too
+        keep = tuple(tuple((1.0 if i == j else 0.0) - gain[i] * f[j] for j in range(k)) for i in range(k))
+        joseph = la.quadratic(keep, tuple(tuple(row) for row in r))
+        cov = tuple(tuple(require_finite(joseph[i][j] + gain[i] * gain[j], "coefficient covariance")
+                          for j in range(k)) for i in range(k))
         dof = lam * state.dof + 1.0
         ss = require_finite(lam * state.sum_squares + error * error / q, "sum of squares")
         new = DynamicRegressionState(state.n + 1, mean, cov, dof, ss, log_lik, comp)

@@ -28,6 +28,7 @@ from typing import Any
 
 from .core import Observation
 from .errors import ContractViolation, OrderingError
+from .numerics import portable_exp2
 from .transforms import Difference, identity_of
 
 
@@ -227,7 +228,9 @@ class AsOfJoin(Topology):
     never sees an event that had not arrived when it did, and to rule out
     look-ahead in a replay the event's time must be when it became
     available (received, parsed and scored), not when it was published.
-    Times must not decrease within either input.
+    Times must not decrease within either input.  The decay is computed
+    with `portable_exp2`, so that the join's output, which enters the
+    recorded history, is the same in every executor.
 
     Not confluent: what a bar sees depends on which events arrived before
     it, so a replay must deliver both inputs in their original order.
@@ -286,7 +289,7 @@ class AsOfJoin(Topology):
         now = obs.time
         count, total, decayed, decayed_count = 0, 0.0, self._decayed, self._decayed_count
         if self.half_life is not None and self._last_bar is not None:
-            f = 2.0 ** (-(now - self._last_bar) / self.half_life)
+            f = portable_exp2(-(now - self._last_bar) / self.half_life)
             decayed, decayed_count = decayed * f, decayed_count * f
         while self._pending and self._pending[0][0] <= now:
             t, v = self._pending.popleft()
@@ -295,7 +298,7 @@ class AsOfJoin(Topology):
             count += 1
             total += v
             if self.half_life is not None:
-                w = 2.0 ** (-(now - t) / self.half_life)
+                w = portable_exp2(-(now - t) / self.half_life)
                 decayed += v * w
                 decayed_count += w
         self._last_bar, self._decayed, self._decayed_count = now, decayed, decayed_count

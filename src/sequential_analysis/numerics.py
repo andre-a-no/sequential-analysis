@@ -54,6 +54,36 @@ def logsumexp(values: Iterable[float]) -> float:
     return m + math.log(ordered_sum(math.exp(v - m) for v in vals))
 
 
+def portable_exp2(x: float) -> float:
+    """2**x from additions, multiplications and divisions only, within a few units in the last place.
+
+    IEEE 754 rounds these operations identically everywhere, unlike exp or
+    pow, whose last bit differs between C libraries and JavaScript engines.
+    So a value that enters the recorded history (a topology's output) is
+    the same in every executor.  x = n + f with n an integer and f in
+    [0, 1); 2^f = e^(f ln 2) by the Taylor series to 20 terms in Horner
+    form, then exact halvings or doublings.
+    """
+    if not math.isfinite(x):
+        raise ValueError("portable_exp2 needs a finite argument")
+    if x < -1100.0:
+        return 0.0
+    if x > 1024.0:
+        raise OverflowError("2**x overflows")
+    n = math.floor(x)
+    y = (x - n) * 0.6931471805599453
+    r = 1.0
+    for k in range(20, 0, -1):
+        r = 1.0 + y * r / k
+    while n < 0:
+        r *= 0.5
+        n += 1
+    while n > 0:
+        r *= 2.0
+        n -= 1
+    return r
+
+
 def require_finite(value: float, what: str) -> float:
     if not math.isfinite(value):
         raise NumericalError(f"{what} is not finite: {value!r}")

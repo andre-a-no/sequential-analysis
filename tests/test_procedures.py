@@ -316,7 +316,7 @@ class Guarantees(unittest.TestCase):
             if isinstance(value, property):
                 continue
             self.assertIn(value, GUARANTEES, name)
-            if name not in ("EMA", "MeanDifference"):
+            if name not in ("CrossCorrelation", "EMA", "MeanDifference"):  # descriptive by design
                 self.assertNotEqual(value, "none", name)
         self.assertEqual(GroupSequentialTest(1.0, [10, 20], [2.5, 2.0]).guarantee, "exact")
         self.assertEqual(GroupSequentialTest(None, [10, 20], [2.5, 2.0]).guarantee, "asymptotic")

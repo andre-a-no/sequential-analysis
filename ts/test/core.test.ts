@@ -8,6 +8,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
+  AsOfJoin,
+  ContractViolation,
   Delivery,
   IncompatibleCheckpoint,
   KeyJoin,
@@ -20,6 +22,7 @@ import {
   checkpointId,
   fromIdentity,
   restoreFromCheckpoint,
+  topologyFromSpec,
 } from "../src/index.js";
 
 const mixture = (tau = 0.5) =>
@@ -79,6 +82,33 @@ test("topologies", () => {
   t.push({ input: "a", value: 1, time: 1 });
   t.push({ input: "b", value: 2, time: 3 });
   assert.equal(t.unmatched, 1);
+});
+
+test("as-of join: what the events said up to each bar, as Python's AsOfJoin", () => {
+  // the decayed sums come from portableExp2, bit for bit those of Python
+  const close = (got: unknown[], want: Record<string, number>) => assert.deepEqual(got, [want]);
+  const j = new AsOfJoin("bar", "news", 2.0);
+  assert.deepEqual(j.push({ input: "news", value: 1.0, time: 0.5 }), []);
+  close(j.push({ input: "bar", value: 10.0, time: 1.0 }),
+    { bar: 10, news_count: 1, news_sum: 1, news_decayed: 0.8408964152537145, news_decayed_count: 0.8408964152537145 });
+  j.push({ input: "news", value: 2.0, time: 0.75 }); // late: arrives after the bar at 1.0
+  j.push({ input: "news", value: 4.0, time: 3.5 }); // waits for a bar at 3.5 or later
+  const restored = topologyFromSpec(j.spec());
+  restored.restore(JSON.parse(JSON.stringify(j.state())));
+  assert.deepEqual(restored.state(), j.state());
+  for (const t of [j, restored]) {
+    close(t.push({ input: "bar", value: { p: 11.0 }, time: 3.0 }),
+      { p: 11, news_count: 1, news_sum: 2, news_decayed: 1.3374522508315285, news_decayed_count: 0.8789502292291929 });
+    close(t.push({ input: "bar", value: 12.0, time: 5.0 }),
+      { bar: 12, news_count: 1, news_sum: 4, news_decayed: 3.0471403554212064, news_decayed_count: 1.034078672115957 });
+    assert.equal((t as AsOfJoin).late, 1);
+  }
+  assert.deepEqual(new AsOfJoin("bar", "news", null, "ev").push({ input: "bar", value: 1, time: 0 }), [{ bar: 1, ev_count: 0, ev_sum: 0 }]);
+  assert.deepEqual(j.spec(), { type: "as_of_join", bars: "bar", events: "news", half_life: 2, prefix: "news" });
+  assert.throws(() => j.push({ input: "news", value: 1, time: 1 }), OrderingError);
+  assert.throws(() => j.push({ input: "bar", value: 1 }), ContractViolation);
+  assert.throws(() => j.push({ input: "bar", value: { news_count: 1 }, time: 9 }), ContractViolation);
+  assert.throws(() => new AsOfJoin("a", "a"));
 });
 
 test("a run checkpoints, refuses a mismatched restore, and continues exactly", () => {

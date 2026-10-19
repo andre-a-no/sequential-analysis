@@ -12,7 +12,7 @@
 // seq, key, time) and writes the new checkpoint and the outputs.
 import { readFileSync, writeFileSync } from "node:fs";
 import { canonicalJson } from "./canonical.js";
-import { PROCEDURE_GUARANTEES } from "./guarantees.js";
+import { COMPOSITE_PROCEDURES, PROCEDURE_GUARANTEES } from "./guarantees.js";
 import { restoreFromCheckpoint } from "./executor.js";
 import type { Observation } from "./observation.js";
 import { registered } from "./procedure.js";
@@ -28,7 +28,9 @@ function main(argv: string[]): number {
   if (command === "procedures") {
     // each registered procedure with what it promises (see the which-method page)
     const describe = (name: string): string => {
-      const g = PROCEDURE_GUARANTEES[name.split("/")[0]];
+      const base = name.split("/")[0];
+      if (COMPOSITE_PROCEDURES.includes(base)) return "that of the procedure inside";
+      const g = PROCEDURE_GUARANTEES[base];
       if (g === undefined) return "";
       return typeof g === "string" ? g : Object.entries(g).map(([k, v]) => `${v} (${k})`).join(", ");
     };

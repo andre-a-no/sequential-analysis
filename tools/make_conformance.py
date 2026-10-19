@@ -25,8 +25,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from sequential_analysis import Run  # noqa: E402
+from sequential_analysis import Lagged, Run  # noqa: E402
 from sequential_analysis.canonical import _number, canonical_json  # noqa: E402
+from sequential_analysis.events import simulate_hawkes  # noqa: E402
+from sequential_analysis.forecasting import fit_var  # noqa: E402
 from sequential_analysis.group_sequential import group_sequential_design  # noqa: E402
 from sequential_analysis.procedures import (  # noqa: E402
     CUSUM,
@@ -47,6 +49,9 @@ from sequential_analysis.procedures import (  # noqa: E402
     CategoricalEmission,
     CatoniConfidenceSequence,
     ConformalForecast,
+    CrossCorrelation,
+    DynamicRegression,
+    EventStudy,
     Exponential,
     ExponentialSmoothing,
     ForecastComparison,
@@ -57,6 +62,7 @@ from sequential_analysis.procedures import (  # noqa: E402
     GroupSequentialProportions,
     GroupSequentialTest,
     GroupSequentialTwoMeans,
+    HawkesProcess,
     HiddenMarkovFilter,
     KalmanFilter,
     KernelTwoSampleTest,
@@ -93,6 +99,7 @@ from sequential_analysis.procedures import (  # noqa: E402
     TMixtureSPRT,
     TwoProportionTest,
     TwoSPRT,
+    VectorAutoRegressive,
     averaged_counts,
     averaged_smoothing,
 )
@@ -634,8 +641,65 @@ def cases():
                        floor=0.05, arms=(2, 0)), None,
          redirected(120, (0.2, 0.3, 0.6), ThompsonAllocation(3, floor=0.05, min_units=10, update_every=10))),
     ]
+    rm = random.Random(20261020)  # several series and events: their own stream
+
+    def var_rows(n, d=2):
+        rows = [[0.0] * d, [0.0] * d]
+        for _ in range(n - 2):
+            a, b = rows[-1], rows[-2]
+            new = [0.2 + 0.5 * a[0] + 0.3 * a[1 % d] - 0.2 * b[d - 1] + rm.gauss(0.0, 1.0)]
+            for i in range(1, d):
+                new.append(-0.1 + 0.1 * a[0] + 0.4 * a[i] + 0.2 * b[0] + rm.gauss(0.0, 1.0))
+            rows.append(new)
+        return [{name: v for name, v in zip(("a", "b", "c")[:d], r)} for r in rows]
+
+    var3 = var_rows(150, 3)
+    fitted = fit_var(var3[:100], ("a", "b", "c"), 2, horizon=3).parameters
+    leads = [rm.gauss(0.0, 1.0) for _ in range(90)]
+    lead_rows = [{"a": (0.0 if t < 2 else 0.7 * leads[t - 2]) + rm.gauss(0.0, 0.7), "b": leads[t]}
+                 for t in range(90)]
+    beta, pair_rows = 1.0, []
+    for _ in range(100):
+        beta += rm.gauss(0.0, 0.02)
+        x = 10.0 + rm.gauss(0.0, 1.0)
+        pair_rows.append({"x": x, "m": rm.gauss(0.0, 1.0), "y": 2.0 + beta * x + rm.gauss(0.0, 0.3)})
+    granger_rows = [{"x": r["b"], "y": r["a"]} for r in lead_rows]
+    pending, study_rows = [], []
+    for _ in range(200):
+        event = int(rm.random() < 0.08)
+        r = rm.gauss(0.0, 1.0) + (0.5 if pending else 0.0)
+        pending = [p - 1 for p in pending if p > 1]
+        if event:
+            pending.append(2)
+        study_rows.append({"r": r, "event": event})
+    several = [
+        ("var_learnt", VectorAutoRegressive(("a", "b"), 2, forgetting=0.98, horizon=3), None, var_rows(80)),
+        ("var_fixed", VectorAutoRegressive(("a", "b", "c"), 2, coefficients=fitted["coefficients"],
+                                           intercept=fitted["intercept"], covariance=fitted["covariance"],
+                                           horizon=3, coverage=0.8), None, var3[100:]),
+        ("var_one_series", VectorAutoRegressive(("a",), 1, ridge=0.5), None,
+         [{"a": r["a"]} for r in var_rows(50)]),
+        ("cross_correlation", CrossCorrelation(max_lag=3), None, lead_rows),
+        ("cross_correlation_forgetting", CrossCorrelation("b", "a", max_lag=2, forgetting=0.95), None, lead_rows),
+        ("dynamic_regression", DynamicRegression(("x",), discount=0.98), None,
+         [{"x": r["x"], "y": r["y"]} for r in pair_rows]),
+        ("dynamic_regression_two", DynamicRegression(("x", "m"), discount=0.995, variance_discount=0.99,
+                                                     intercept=False, prior_scale=100.0), None, pair_rows),
+        ("lagged_granger", Lagged(AnytimeLinearModel(covariates=("y_lag1", "y_lag2"),
+                                                     tested=("x_lag1", "x_lag2")), {"x": 2, "y": 2}), None,
+         granger_rows),
+        ("lagged_var_regressor", Lagged(DynamicRegression(("b_lag1",), input="a"), {"b": 1}), None,
+         lead_rows[:60]),
+        ("hawkes", HawkesProcess(0.5, 0.8, 1.2, window=2.0), None,
+         [{"t": t} for t in simulate_hawkes(0.5, 0.8, 1.2, 60.0, seed=11)]),
+        ("hawkes_start", HawkesProcess(2.0, 0.0, 1.0, start=-3.0, input="time"), None,
+         [{"time": t} for t in simulate_hawkes(2.0, 0.1, 1.0, 20.0, seed=12)]),
+        ("event_study", EventStudy(3, start=5, tuned_for=20.0), None, study_rows),
+        ("event_study_overlap", EventStudy(2, alpha=0.1, start=3, overlap="allow", returns="ar", event="news"),
+         None, [{"ar": r["r"], "news": r["event"]} for r in study_rows[:120]]),
+    ]
     return (existing + added + ported + later + round_four + stratified_logrank + ratio + online_hmm + emissions
-            + forecasting + inputs_round + traffic)
+            + forecasting + inputs_round + traffic + several)
 
 
 def vector(label, procedure, seed, inputs):
