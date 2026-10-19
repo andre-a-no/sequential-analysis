@@ -184,7 +184,8 @@ class Lagged(Procedure):
                     x2[lag_name(s, j + 1)] = p[j]
             validate_input(self.inner, x2)
             inner, out = self.inner.step(state.inner, x2, rng)
-        past = tuple((float(x[s]), *p)[:k] for p, (s, k) in zip(state.past, self.lags.items()))
+        pairs = zip(state.past, self.lags.items())
+        past = tuple((float(x[s]), *p)[:k] for p, (s, k) in pairs)  # novermin (not PEP 798)
         return LaggedState(state.n + 1, past, inner), LaggedOutput(ready, out)
 
     def is_terminal(self, state: LaggedState) -> bool:

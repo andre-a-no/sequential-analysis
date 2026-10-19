@@ -100,7 +100,7 @@ class VectorAutoRegression(unittest.TestCase):
         state = model.initial_state()
         for r in rows:
             state, _ = model.step(state, {"a": r[0], "b": r[1]})
-        xs = [[1.0, *rows[t - 1], *rows[t - 2]] for t in range(2, len(rows))]
+        xs = [[1.0, *rows[t - 1], *rows[t - 2]] for t in range(2, len(rows))]  # novermin (not PEP 798)
         ys = rows[2:]
         k = 5
         m = [[sum(x[i] * x[j] for x in xs) + (ridge if i == j else 0.0) for j in range(k)] for i in range(k)]
@@ -220,7 +220,7 @@ class LeadLag(unittest.TestCase):
 
     def test_undefined_until_variance(self):
         model = CrossCorrelation(max_lag=1)
-        state, out = model.step(model.initial_state(), {"a": 1.0, "b": 2.0})
+        _, out = model.step(model.initial_state(), {"a": 1.0, "b": 2.0})
         self.assertEqual(out.correlations, (None, None, None))
         self.assertIsNone(out.lead)
 

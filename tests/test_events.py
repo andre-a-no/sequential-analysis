@@ -103,9 +103,9 @@ class Study(unittest.TestCase):
 
     def test_overlap(self):
         rows = [(1.0, 1), (1.0, 1), (1.0, 0), (1.0, 0)]
-        state, out = self.run_study(EventStudy(2), rows)
+        _, out = self.run_study(EventStudy(2), rows)
         self.assertEqual((out.events, out.skipped), (1, 1))
-        state, out = self.run_study(EventStudy(2, overlap="allow"), rows)
+        _, out = self.run_study(EventStudy(2, overlap="allow"), rows)
         self.assertEqual((out.events, out.skipped), (2, 0))
 
     def test_rarely_misses_zero_without_reaction(self):
