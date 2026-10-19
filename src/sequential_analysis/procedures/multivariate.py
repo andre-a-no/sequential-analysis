@@ -135,7 +135,7 @@ class VectorAutoRegressive(Procedure):
     """VAR(p) forecasts of several series, with fixed coefficients or learnt online; see the module docstring.
 
     `series` names the inputs, one number each per step.  For fixed
-    training give `coefficients` -- p matrices, coefficients[j][i][k] the
+    training give `coefficients` -- p matrices, `coefficients[j][i][k]` the
     effect of series k at lag j + 1 on series i -- with `intercept` and the
     noise `covariance`.  Leave them out to learn them, with `forgetting`
     and `ridge` as in AutoRegressive.
