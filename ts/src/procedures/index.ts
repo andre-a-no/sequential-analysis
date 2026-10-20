@@ -11,6 +11,7 @@ export { lgamma, erfc, regularizedBeta, tCdf, tIsfLog } from "./distributions.js
 export { MeanEDetector, QuantileEDetector } from "./edetector.js";
 export { EMA } from "./ema.js";
 export { EventStudy, HawkesProcess } from "./events.js";
+export { GARCH, garchLogDensity } from "./volatility.js";
 export { Bernoulli, Exponential, type Family, familyFromSpec, Gaussian, Poisson } from "./families.js";
 export {
   AutoRegressive, averagedCounts, type AveragedCountsOptions, averagedSmoothing, type AveragedSmoothingOptions, ConformalForecast,

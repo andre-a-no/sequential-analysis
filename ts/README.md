@@ -12,7 +12,7 @@ specified in SPEC.md:
 ## Agreement with the Python library
 
 * **History digests and random states** are identical.
-* **Outputs and states** are identical for 34 of the 105 conformance
+* **Outputs and states** are identical for 34 of the 108 conformance
   cases. For the others they agree to 5e-14 relative, and to 5.9e-13 in
   thirteen cases (a value near zero, or a weight, that is a difference of
   much larger terms, in eight; bounds found by a root search, in four;
@@ -73,7 +73,8 @@ The executor has two parts:
     coefficients (`DynamicRegression`); `Lagged`, which feeds a
     procedure the recent past of its inputs (an anytime-valid Granger
     test with the linear model inside);
-  * streams of events: the Hawkes process filter and event studies.
+  * streams of events: the Hawkes process filter and event studies;
+  * volatility: the GARCH(1,1) and GJR-GARCH(1,1) filter.
 
   Topologies: independent, positional pair, key join, time alignment and
   the as-of join of bars with irregular events. Its decayed sums use

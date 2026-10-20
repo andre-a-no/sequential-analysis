@@ -11,7 +11,7 @@ authors:
     family-names: Novikov
     affiliation: Novikov Laboratories LLC
 version: 0.4.0
-date-released: "2026-10-16"
+date-released: "2026-10-19"
 license: AGPL-3.0-only
 repository-code: "https://github.com/andre-a-no/sequential-analysis"
 url: "https://pypi.org/project/sequential-analysis/"

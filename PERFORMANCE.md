@@ -105,6 +105,7 @@ Measured with `python tools/benchmark.py --markdown` on CPython 3.13.16, numpy 2
 | Lagged AnytimeLinearModel, Granger test with 3 lags | - | 100 | 68 µs | 943 B |
 | HawkesProcess | - | 100 | 2 µs | 139 B |
 | EventStudy, 10 steps | - | 1,000 | 8 µs | 492 B |
+| GARCH, GJR with Student t, 10 ahead | - | 100 | 6 µs | 110 B |
 | ThompsonAllocation, 3 binary arms, split every unit | - | 1,000 | 14.6 ms | 426 B |
 | BoundedABTest with propensities, grid 1000 | python | 100 | 452 µs | 40 kB |
 | BoundedABTest with propensities, grid 1000 | numpy | 100 | 145 µs | 40 kB |

@@ -25,6 +25,7 @@ from sequential_analysis import (
 from sequential_analysis.procedures import (
     CUSUM,
     EMA,
+    GARCH,
     SPRT,
     ABTest,
     AnytimeLinearModel,
@@ -718,6 +719,14 @@ def cases():
             lambda: KeyJoin(("r", "event")),
             Delivery,
             record_stream([{"r": math.sin(1.1 * i), "event": int(i % 9 == 0)} for i in range(n)], ("r", "event")),
+            None,
+        ),
+        (
+            "garch",
+            lambda: GARCH(0.05, 0.08, 0.88, gamma=0.04, distribution="t", df=6.0, horizon=3),
+            Independent,
+            Delivery,
+            list(from_values("r", [math.sin(1.3 * i) * (1.0 + 0.5 * (i % 7 == 0)) for i in range(n)])),
             None,
         ),
         (

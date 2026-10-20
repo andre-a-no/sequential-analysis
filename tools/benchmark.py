@@ -32,6 +32,7 @@ from sequential_analysis import Lagged, backend  # noqa: E402
 from sequential_analysis.procedures import (  # noqa: E402
     CUSUM,
     EMA,
+    GARCH,
     SPRT,
     ABTest,
     AnytimeLinearModel,
@@ -292,6 +293,8 @@ CASES = [
                       {"x": 3, "y": 3}), granger_pair, (100,), False),
     ("HawkesProcess", lambda b: HawkesProcess(0.5, 0.4, 1.0, window=1.0), _Clock(), (100,), False),
     ("EventStudy, 10 steps", lambda b: EventStudy(10), abnormal_return, (1000,), False),
+    ("GARCH, GJR with Student t, 10 ahead", lambda b: GARCH(0.02, 0.03, 0.91, gamma=0.1, distribution="t", df=5.0,
+                                                          horizon=10, input="y"), observation, (100,), False),
     ("ThompsonAllocation, 3 binary arms, split every unit",
      lambda b: ThompsonAllocation(3, min_units=10, update_every=1), three_arms, (1000,), False),
     ("BoundedABTest with propensities, grid 1000",

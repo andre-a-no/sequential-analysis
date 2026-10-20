@@ -56,7 +56,8 @@ systems all work this way. `sequential-analysis` is a Python library
   comparison of forecasters;
 * several series and event streams: Granger tests on lagged inputs,
   regression on drifting coefficients, Hawkes processes, event studies,
-  and an as-of join of irregular events to regular bars.
+  and an as-of join of irregular events to regular bars;
+* volatility: GARCH and GJR-GARCH with normal or Student t shocks.
 
 Each procedure is a pure state-transition function
 $F(S, X, R) \to (S', O, R')$ of its state, an observation and a random
@@ -65,7 +66,7 @@ delivers observations, and writes checkpoints. A run restored from a
 checkpoint continues bit for bit as if it had never stopped. A history
 digest in RFC 8785 canonical JSON [@rfc8785] records exactly which data
 produced a decision. A specification of the formats and a TypeScript
-executor let a run move between languages: 105 conformance vectors are
+executor let a run move between languages: 108 conformance vectors are
 reproduced, 34 bit for bit and the rest to $6\cdot10^{-13}$.
 
 # Statement of need
