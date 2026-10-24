@@ -23,6 +23,11 @@ and resumed bit for bit, in Python or in the TypeScript executor.
 
 Documentation and tutorials: https://andre-a-no.github.io/sequential-analysis/
 
+New here? Start with the [user guide](https://andre-a-no.github.io/sequential-analysis/guide/).
+It answers the common questions with code that runs: stopping an A/B test
+early, confidence sequences, the SPRT, interim analyses of a trial and
+change detection.
+
 Sequential statistical inference, separated from the experimental runtime.
 
 > **Procedure infers; consumers act.**

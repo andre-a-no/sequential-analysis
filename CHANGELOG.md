@@ -22,6 +22,38 @@ separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
   test by betting of the breach rate, and a detector on the residuals
   that notices a crisis.
 
+### Added: a user guide
+- A user guide organised by the questions people ask, each page opening
+  with a direct answer, a program that runs as written, its output, the
+  guarantee behind the answer and the cases where it does not apply:
+  - the peeking problem, measured;
+  - stopping an A/B test early;
+  - confidence sequences;
+  - Wald's SPRT;
+  - interim analyses of a clinical trial;
+  - change detection and the choice of the ARL;
+  - streams, checkpoints and crashes;
+  - a comparison with other libraries, a FAQ and a glossary with
+    synonyms.
+- `llms.txt` and `llms-full.txt` (https://llmstxt.org) on the
+  documentation site. The second is the guide, the tutorials and the
+  guides as one Markdown file with absolute links, built with the site.
+- Each guide page has a description for search results. The home page
+  describes the library in schema.org terms (JSON-LD).
+- The user guide in 24 more languages (`docs/<language>/guide/`): those
+  spoken by more than 50 million people, and Polish. They are Russian,
+  Polish, German, French, Italian, Spanish, Brazilian Portuguese,
+  Turkish, Arabic, Persian, Urdu, Hindi, Bengali, Marathi, Telugu, Tamil,
+  Simplified Chinese, Japanese, Korean, Vietnamese, Thai, Indonesian,
+  Filipino and Swahili.
+  - The code and outputs are those of the English pages, which the tests
+    check.
+  - Each page says which English page it translates.
+  - The translations have not yet been reviewed by native speakers, and
+    the English pages are authoritative.
+  - Each page has a language selector and hreflang links to its other
+    versions. Arabic, Persian and Urdu pages are laid out right to left.
+
 ### Release
 - The release workflow refuses a commit whose changelog still has an
   Unreleased section.
