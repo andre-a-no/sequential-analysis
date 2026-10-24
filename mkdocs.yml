@@ -42,6 +42,9 @@ plugins:
             heading_level: 2
             members_order: source
             filters: ["!^_"]
+extra:
+  # The user guide is translated (docs/<code>/guide/); the hooks add the language selector and hreflang links
+  translations: []
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 nav:

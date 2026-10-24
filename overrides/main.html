@@ -4,6 +4,13 @@
 
 {% block extrahead %}
   {{ super() }}
+  {#- The same page in the other languages, for search engines -#}
+  {%- if page and page.meta and page.meta.alternates %}
+    {%- for alt in page.meta.alternates %}
+  <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ config.site_url ~ alt.link }}">
+    {%- endfor %}
+  <link rel="alternate" hreflang="x-default" href="{{ config.site_url ~ page.meta.alternates[0].link }}">
+  {%- endif %}
   {#- What the library is, in schema.org terms, for search engines and the systems that read pages for them -#}
   {%- if page and page.is_homepage %}
   <script type="application/ld+json">

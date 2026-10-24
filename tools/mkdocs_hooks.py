@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Novikov Laboratories LLC (Kazan, Tatarstan, Russian Federation)
 # Commercial licenses for use outside the AGPL: see COMMERCIAL.md
-"""MkDocs hooks: the package version for the templates, and llms-full.txt.
+"""MkDocs hooks: the package version, the translations of the guide, and llms-full.txt.
+
+The user guide is translated into the languages listed under
+`extra.translations` in mkdocs.yml, one folder per language
+(docs/ru/guide/...). Each translated page names its language in its front
+matter (overrides/partials/language.html then sets the page's language and
+direction). The hooks give every guide page the list of its versions, for
+the language selector and the hreflang links (overrides/), and point the
+selector elsewhere to the guide of each language.
 
 llms-full.txt (https://llmstxt.org) is the documentation as one Markdown
 file, in the order of the navigation: the user guide, the which-method
@@ -18,6 +26,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+GUIDE = "guide/"
 LEFT_OUT = ("reference/", "changelog.md", "spec.md", "performance.md")
 SNIPPET = re.compile(r'^--8<-- "([^":]+)(?::([\w-]+))?"\s*$', re.M)
 FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
@@ -30,9 +39,37 @@ def version() -> str:
     return re.search(r'__version__ = "([^"]+)"', text).group(1)
 
 
+def translations(config) -> list[dict]:
+    return config["extra"].get("translations", [])
+
+
 def on_config(config):
     config.extra["version"] = version()
+    config.extra["alternate"] = [{"name": "English", "link": GUIDE, "lang": "en"}] + [
+        {"name": t["name"], "link": f"{t['code']}/{GUIDE}", "lang": t["lang"]} for t in translations(config)]
     return config
+
+
+def original(src_uri: str, config) -> str | None:
+    """The English guide page that `src_uri` is or translates; None outside the guide."""
+    for t in translations(config):
+        prefix = f"{t['code']}/"
+        if src_uri.startswith(prefix + GUIDE):
+            return src_uri[len(prefix):]
+    return src_uri if src_uri.startswith(GUIDE) else None
+
+
+def on_page_context(context, page, config, nav):
+    key = original(page.file.src_uri, config)
+    if key is not None:
+        versions = [{"name": "English", "link": page_url(key), "lang": "en"}]
+        for t in translations(config):
+            path = f"{t['code']}/{key}"
+            if (Path(config["docs_dir"]) / path).exists():
+                versions.append({"name": t["name"], "link": page_url(path), "lang": t["lang"]})
+        if len(versions) > 1:
+            page.meta["alternates"] = versions
+    return context
 
 
 def page_url(path: str) -> str:

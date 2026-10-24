@@ -1,0 +1,6 @@
+{#- SPDX-License-Identifier: AGPL-3.0-only -#}
+{#- The language of the page: `language` in its front matter (the translations of the guide), else the site's -#}
+{%- set page_language = page.meta.language if page and page.meta and page.meta.language else config.theme.language -%}
+{% import "partials/languages/" ~ page_language ~ ".html" as lang %}
+{% import "partials/languages/en.html" as fallback %}
+{% macro t(key) %}{{ lang.t(key) or fallback.t(key) or key }}{% endmacro %}
