@@ -25,7 +25,7 @@ The whole documentation in one file, without the API reference: https://andre-a-
 
 ## The user guide in other languages
 
-Translations of the eleven guide pages into 23 languages; the English pages are authoritative.
+Translations of the eleven guide pages into 24 languages; the English pages are authoritative.
 
 - [Русский](https://andre-a-no.github.io/sequential-analysis/ru/guide/) (ru)
 - [简体中文](https://andre-a-no.github.io/sequential-analysis/zh/guide/) (zh)
@@ -36,6 +36,7 @@ Translations of the eleven guide pages into 23 languages; the English pages are 
 - [Español](https://andre-a-no.github.io/sequential-analysis/es/guide/) (es)
 - [Italiano](https://andre-a-no.github.io/sequential-analysis/it/guide/) (it)
 - [Português (Brasil)](https://andre-a-no.github.io/sequential-analysis/pt-br/guide/) (pt-BR)
+- [Polski](https://andre-a-no.github.io/sequential-analysis/pl/guide/) (pl)
 - [Türkçe](https://andre-a-no.github.io/sequential-analysis/tr/guide/) (tr)
 - [Bahasa Indonesia](https://andre-a-no.github.io/sequential-analysis/id/guide/) (id)
 - [Tiếng Việt](https://andre-a-no.github.io/sequential-analysis/vi/guide/) (vi)
