@@ -40,6 +40,18 @@ separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
   guides as one Markdown file with absolute links, built with the site.
 - Each guide page has a description for search results. The home page
   describes the library in schema.org terms (JSON-LD).
+- The user guide in 23 more languages, each spoken by more than 50 million
+  people (`docs/<language>/guide/`): Russian, German, French, Italian,
+  Spanish, Brazilian Portuguese, Turkish, Arabic, Persian, Urdu, Hindi,
+  Bengali, Marathi, Telugu, Tamil, Simplified Chinese, Japanese, Korean,
+  Vietnamese, Thai, Indonesian, Filipino and Swahili.
+  - The code and outputs are those of the English pages, which the tests
+    check.
+  - Each page says which English page it translates.
+  - The translations have not yet been reviewed by native speakers, and
+    the English pages are authoritative.
+  - Each page has a language selector and hreflang links to its other
+    versions. Arabic, Persian and Urdu pages are laid out right to left.
 
 ### Release
 - The release workflow refuses a commit whose changelog still has an

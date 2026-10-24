@@ -23,6 +23,34 @@ The whole documentation in one file, without the API reference: https://andre-a-
 - [Frequently asked questions](https://andre-a-no.github.io/sequential-analysis/guide/faq/): licence, production use, power, speed, citing
 - [Glossary](https://andre-a-no.github.io/sequential-analysis/guide/glossary/): e-value, confidence sequence, alpha spending, ARL and synonyms
 
+## The user guide in other languages
+
+Translations of the eleven guide pages into 23 languages; the English pages are authoritative.
+
+- [Русский](https://andre-a-no.github.io/sequential-analysis/ru/guide/) (ru)
+- [简体中文](https://andre-a-no.github.io/sequential-analysis/zh/guide/) (zh)
+- [日本語](https://andre-a-no.github.io/sequential-analysis/ja/guide/) (ja)
+- [한국어](https://andre-a-no.github.io/sequential-analysis/ko/guide/) (ko)
+- [Deutsch](https://andre-a-no.github.io/sequential-analysis/de/guide/) (de)
+- [Français](https://andre-a-no.github.io/sequential-analysis/fr/guide/) (fr)
+- [Español](https://andre-a-no.github.io/sequential-analysis/es/guide/) (es)
+- [Italiano](https://andre-a-no.github.io/sequential-analysis/it/guide/) (it)
+- [Português (Brasil)](https://andre-a-no.github.io/sequential-analysis/pt-br/guide/) (pt-BR)
+- [Türkçe](https://andre-a-no.github.io/sequential-analysis/tr/guide/) (tr)
+- [Bahasa Indonesia](https://andre-a-no.github.io/sequential-analysis/id/guide/) (id)
+- [Tiếng Việt](https://andre-a-no.github.io/sequential-analysis/vi/guide/) (vi)
+- [العربية](https://andre-a-no.github.io/sequential-analysis/ar/guide/) (ar)
+- [فارسی](https://andre-a-no.github.io/sequential-analysis/fa/guide/) (fa)
+- [हिन्दी](https://andre-a-no.github.io/sequential-analysis/hi/guide/) (hi)
+- [اردو](https://andre-a-no.github.io/sequential-analysis/ur/guide/) (ur)
+- [বাংলা](https://andre-a-no.github.io/sequential-analysis/bn/guide/) (bn)
+- [తెలుగు](https://andre-a-no.github.io/sequential-analysis/te/guide/) (te)
+- [मराठी](https://andre-a-no.github.io/sequential-analysis/mr/guide/) (mr)
+- [தமிழ்](https://andre-a-no.github.io/sequential-analysis/ta/guide/) (ta)
+- [ไทย](https://andre-a-no.github.io/sequential-analysis/th/guide/) (th)
+- [Filipino](https://andre-a-no.github.io/sequential-analysis/tl/guide/) (tl)
+- [Kiswahili](https://andre-a-no.github.io/sequential-analysis/sw/guide/) (sw)
+
 ## Choosing a method
 
 - [Which method?](https://andre-a-no.github.io/sequential-analysis/choosing/): every question, the procedure that answers it and its guarantee
