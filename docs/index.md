@@ -4,6 +4,14 @@ Sequential statistical inference in Python: tests and estimates that may
 be looked at after every observation and stopped at any time, with their
 error guarantees intact.
 
+New here? The [user guide](guide/index.md) answers the common questions
+directly, each with a program that runs as written: how to
+[stop an A/B test early](guide/ab-testing.md), how to get
+[a confidence interval you may monitor](guide/confidence-sequences.md),
+how to run [Wald's SPRT](guide/sprt.md), how to plan
+[interim analyses of a trial](guide/clinical-trials.md), and how to
+[detect a change in a stream](guide/change-detection.md).
+
 The library has these kinds of methods:
 
 * **Classical sequential tests:** Wald's SPRT, Lorden's 2-SPRT, optimal

@@ -1,0 +1,55 @@
+# sequential-analysis
+
+> Python library for sequential statistical inference: tests, confidence sequences and detectors that may be checked after every observation and stopped at any time with their error guarantees intact. Wald's SPRT and Kiefer-Weiss optimal plans, group sequential designs for clinical trials (O'Brien-Fleming and Pocock alpha spending, futility bounds, sample sizes; checked against rpact), anytime-valid A/B tests with e-values and confidence sequences (conversion, bounded and rate metrics, sample ratio mismatch, e-BH false discovery rate control), change-point detection (CUSUM, Shiryaev-Roberts, nonparametric e-detectors, Bayesian online change points), Kalman, particle and hidden Markov filters, forecasting and GARCH volatility. Runs are checkpointed as JSON and resumed bit for bit; a TypeScript executor continues the same checkpoints.
+
+- Install: `pip install sequential-analysis`; import: `sequential_analysis`. Python 3.8 or later, no required dependencies (numpy optional).
+- Each procedure states its guarantee in its `guarantee` attribute: exact, asymptotic, model, approximate or none.
+- Licence: AGPL-3.0, or a commercial licence from Novikov Laboratories LLC (andrei@hobukob.ru).
+- Source: https://github.com/andre-a-no/sequential-analysis. PyPI: https://pypi.org/project/sequential-analysis/
+
+The whole documentation in one file, without the API reference: https://andre-a-no.github.io/sequential-analysis/llms-full.txt
+
+## User guide
+
+- [Overview](https://andre-a-no.github.io/sequential-analysis/guide/): the library in one paragraph and the questions the guide answers
+- [Why can't I look at a p-value every day?](https://andre-a-no.github.io/sequential-analysis/guide/peeking/): the peeking problem, measured, and the three families of sequential methods
+- [Stop an A/B test early](https://andre-a-no.github.io/sequential-analysis/guide/ab-testing/): TwoProportionTest, BoundedABTest, SampleRatioMismatch, MultipleTests
+- [Confidence intervals you can monitor](https://andre-a-no.github.io/sequential-analysis/guide/confidence-sequences/): confidence sequences for bounded means, quantiles and heavy-tailed data
+- [Wald's SPRT in Python](https://andre-a-no.github.io/sequential-analysis/guide/sprt/): SPRT, TwoSPRT, Kiefer-Weiss plans
+- [Interim analyses of a clinical trial](https://andre-a-no.github.io/sequential-analysis/guide/clinical-trials/): group_sequential_design, alpha spending, sample sizes
+- [Detect a change in a stream](https://andre-a-no.github.io/sequential-analysis/guide/change-detection/): CUSUM, e-detectors, choosing the ARL
+- [Streams, checkpoints and crashes](https://andre-a-no.github.io/sequential-analysis/guide/streaming/): Run, Delivery, Run.restore, history digest
+- [Compared with other libraries](https://andre-a-no.github.io/sequential-analysis/guide/comparison/): statsmodels, rpact, gsDesign, confseq, safestats, ruptures, filterpy, arch, hmmlearn
+- [Frequently asked questions](https://andre-a-no.github.io/sequential-analysis/guide/faq/): licence, production use, power, speed, citing
+- [Glossary](https://andre-a-no.github.io/sequential-analysis/guide/glossary/): e-value, confidence sequence, alpha spending, ARL and synonyms
+
+## Choosing a method
+
+- [Which method?](https://andre-a-no.github.io/sequential-analysis/choosing/): every question, the procedure that answers it and its guarantee
+
+## Tutorials
+
+- [A/B test, monitored continuously](https://andre-a-no.github.io/sequential-analysis/tutorials/ab-test/)
+- [Group sequential trial](https://andre-a-no.github.io/sequential-analysis/tutorials/group-sequential/)
+- [Survival trial, monitored after every event](https://andre-a-no.github.io/sequential-analysis/tutorials/survival/)
+- [Process monitoring and change detection](https://andre-a-no.github.io/sequential-analysis/tutorials/monitoring/)
+- [Regimes with hidden Markov models](https://andre-a-no.github.io/sequential-analysis/tutorials/regimes/)
+- [Forecasting, fixed and continuous training](https://andre-a-no.github.io/sequential-analysis/tutorials/forecasting/)
+- [Several series, lead, lag and pairs](https://andre-a-no.github.io/sequential-analysis/tutorials/multivariate/)
+- [A news stream and the market](https://andre-a-no.github.io/sequential-analysis/tutorials/news/)
+- [Volatility and value at risk](https://andre-a-no.github.io/sequential-analysis/tutorials/volatility/)
+- [A programme of experiments](https://andre-a-no.github.io/sequential-analysis/tutorials/experiment-programme/)
+
+## Reference
+
+- [Methods](https://andre-a-no.github.io/sequential-analysis/methods/): every procedure, one line each
+- [API reference](https://andre-a-no.github.io/sequential-analysis/reference/run/): generated from the docstrings
+- [Checkpoints, logs and backends](https://andre-a-no.github.io/sequential-analysis/checkpoints/)
+- [TypeScript executor](https://andre-a-no.github.io/sequential-analysis/typescript/)
+
+## Optional
+
+- [Specification of the formats](https://andre-a-no.github.io/sequential-analysis/spec/): checkpoints, observation logs, history digest
+- [Speed](https://andre-a-no.github.io/sequential-analysis/performance/): cost per step and checkpoint size of every procedure
+- [Changelog](https://andre-a-no.github.io/sequential-analysis/changelog/)
+- [Paper](https://github.com/andre-a-no/sequential-analysis/blob/main/paper/main.pdf): methods and how each is checked

@@ -7,6 +7,7 @@ copyright: Copyright © 2026 Novikov Laboratories LLC. AGPL-3.0 or commercial li
 docs_dir: docs
 theme:
   name: material
+  custom_dir: overrides
   features:
     - navigation.sections
     - content.code.copy
@@ -26,6 +27,8 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.snippets: {base_path: ["."], check_paths: true}
   - pymdownx.arithmatex: {generic: true}
+hooks:
+  - tools/mkdocs_hooks.py
 plugins:
   - search
   - mkdocstrings:
@@ -43,6 +46,18 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 nav:
   - Home: index.md
+  - User guide:
+      - Overview: guide/index.md
+      - "Why can't I look at a p-value every day?": guide/peeking.md
+      - Stop an A/B test early: guide/ab-testing.md
+      - Confidence intervals you can monitor: guide/confidence-sequences.md
+      - Wald's SPRT in Python: guide/sprt.md
+      - Interim analyses of a clinical trial: guide/clinical-trials.md
+      - Detect a change in a stream: guide/change-detection.md
+      - Streams, checkpoints and crashes: guide/streaming.md
+      - Compared with other libraries: guide/comparison.md
+      - Frequently asked questions: guide/faq.md
+      - Glossary: guide/glossary.md
   - Which method?: choosing.md
   - Tutorials:
       - A/B test, monitored continuously: tutorials/ab-test.md
