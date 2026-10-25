@@ -1,6 +1,7 @@
 # The source distribution can run its own test suite and conformance checks.
 include CHANGELOG.md CITATION.cff CLA.md CONTRIBUTING.md COMMERCIAL.md LICENSE PERFORMANCE.md README.md SPEC.md mkdocs.yml
-recursive-include docs *.md *.png
+recursive-include docs *.md *.png *.txt
+recursive-include overrides *.html
 prune ts
 recursive-include tests *.py *.json
 recursive-include conformance *.json *.mjs
@@ -11,4 +12,6 @@ prune tools
 include tools/make_conformance.py tools/smoke_test.py
 # tests/test_r_reference.py reads tests/r_reference.json, which this script writes with R
 include tools/r_reference.R
+# mkdocs.yml builds the site with these hooks
+include tools/mkdocs_hooks.py
 global-exclude __pycache__ *.py[cod]

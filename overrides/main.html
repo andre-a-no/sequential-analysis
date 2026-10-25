@@ -1,0 +1,37 @@
+{#- SPDX-License-Identifier: AGPL-3.0-only -#}
+{#- Copyright (C) 2026 Novikov Laboratories LLC (Kazan, Tatarstan, Russian Federation) -#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {#- The same page in the other languages, for search engines -#}
+  {%- if page and page.meta and page.meta.alternates %}
+    {%- for alt in page.meta.alternates %}
+  <link rel="alternate" hreflang="{{ alt.lang }}" href="{{ config.site_url ~ alt.link }}">
+    {%- endfor %}
+  <link rel="alternate" hreflang="x-default" href="{{ config.site_url ~ page.meta.alternates[0].link }}">
+  {%- endif %}
+  {#- What the library is, in schema.org terms, for search engines and the systems that read pages for them -#}
+  {%- if page and page.is_homepage %}
+  <script type="application/ld+json">
+  {{ {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": config.site_name,
+    "description": config.site_description,
+    "version": config.extra.version,
+    "url": config.site_url,
+    "codeRepository": config.repo_url,
+    "programmingLanguage": ["Python", "TypeScript"],
+    "runtimePlatform": "Python 3.8 or later",
+    "license": "https://spdx.org/licenses/AGPL-3.0-only.html",
+    "isAccessibleForFree": true,
+    "author": {"@type": "Organization", "name": "Novikov Laboratories LLC", "email": "andrei@hobukob.ru"},
+    "keywords": ["sequential analysis", "sequential testing", "SPRT", "anytime-valid inference", "A/B testing",
+                 "confidence sequence", "e-values", "group sequential design", "alpha spending", "clinical trials",
+                 "change-point detection", "CUSUM", "Kalman filter", "GARCH", "streaming statistics"],
+    "sameAs": ["https://pypi.org/project/sequential-analysis/"]
+  } | tojson }}
+  </script>
+  {%- endif %}
+{% endblock %}
