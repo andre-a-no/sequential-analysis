@@ -38,6 +38,15 @@ separately (`sequential-analysis.checkpoint/2`, `.log/2`, `.history/2`,
 - `llms.txt` and `llms-full.txt` (https://llmstxt.org) on the
   documentation site. The second is the guide, the tutorials and the
   guides as one Markdown file with absolute links, built with the site.
+- `llms-api.txt` on the site, for AI assistants writing code with the
+  library. It is generated from the code by `tools/make_llms_api.py` and
+  covers:
+  - how a procedure is called;
+  - for each of the 55 public procedures: its constructor, guarantee,
+    input names and output fields (from a run of each);
+  - the signatures of the other public functions.
+
+  The tests check that it is up to date.
 - Each guide page has a description for search results. The home page
   describes the library in schema.org terms (JSON-LD).
 - The user guide in 24 more languages (`docs/<language>/guide/`): those

@@ -14,4 +14,6 @@ include tools/make_conformance.py tools/smoke_test.py
 include tools/r_reference.R
 # mkdocs.yml builds the site with these hooks
 include tools/mkdocs_hooks.py
+# tests/test_docs.py checks that docs/llms-api.txt is what it writes
+include tools/make_llms_api.py tools/llms_api_preamble.md
 global-exclude __pycache__ *.py[cod]

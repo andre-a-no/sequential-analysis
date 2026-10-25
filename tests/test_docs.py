@@ -136,13 +136,27 @@ class Documentation(unittest.TestCase):
         for code, _ in translations():
             self.assertIn(f"{code}/guide/", urls)
         for url in urls:
-            if url == "llms-full.txt":
+            if url == "llms-full.txt":  # written when the site is built
+                continue
+            if url.endswith(".txt"):
+                self.assertTrue((ROOT / "docs" / url).exists(), url)
                 continue
             with self.subTest(url=url):
                 path = url.rstrip("/")
                 candidates = [ROOT / "docs" / "index.md"] if not path else \
                     [ROOT / "docs" / (path + ".md"), ROOT / "docs" / path / "index.md"]
                 self.assertTrue(any(c.exists() for c in candidates), url)
+
+    @unittest.skipUnless((ROOT / "tools" / "make_llms_api.py").exists(), "the generator is not here")
+    def test_llms_api_is_up_to_date(self):
+        """docs/llms-api.txt is what tools/make_llms_api.py writes from the code."""
+        sys.path.insert(0, str(ROOT / "tools"))
+        try:
+            import make_llms_api
+        finally:
+            sys.path.pop(0)
+        self.assertEqual(make_llms_api.render(), (ROOT / "docs" / "llms-api.txt").read_text(encoding="utf-8"),
+                         "run python tools/make_llms_api.py")
 
     @unittest.skipIf(importlib.util.find_spec("yaml") is None, "needs PyYAML to read mkdocs.yml")
     @unittest.skipUnless(all((ROOT / f).exists() for f in ("README.md", "src", "tools/mkdocs_hooks.py")),

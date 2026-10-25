@@ -1,0 +1,689 @@
+# sequential-analysis 0.4.0: API reference for AI assistants
+
+> Python library for sequential statistical inference: tests, confidence sequences and detectors that may be checked after every observation and stopped at any time with their error guarantees intact (SPRT, group sequential designs, anytime-valid A/B tests, change detection, Kalman/particle/HMM filters, forecasting, GARCH).
+
+This file is generated from the code of version 0.4.0 by tools/make_llms_api.py. The constructors, guarantees, input names and output fields below are the library's own; when writing code, use them rather than names recalled from other libraries. The user guide with worked examples is at https://andre-a-no.github.io/sequential-analysis/guide/, and llms.txt at https://andre-a-no.github.io/sequential-analysis/llms.txt lists the documentation.
+
+## How the library is used
+
+- Install `pip install sequential-analysis`; import `sequential_analysis`. Python 3.8 or later, no required dependencies (`pip install "sequential-analysis[fast]"` adds numpy for the array-heavy procedures).
+- Procedures are in `sequential_analysis.procedures`. Each is a pure transition: `state = proc.initial_state()`, then for each observation `state, out = proc.step(state, x)`, where `x` is a dict keyed by the procedure's input names (listed below; most default to `"x"`, A/B tests to `"arm"` and `"y"`). There is no `fit`/`predict` or array API on procedures: feed observations one at a time, in order.
+- `out` is a frozen dataclass with the output fields listed below. Tests report `out.decision`: None while undecided, then `"reject_h0"` or `"accept_h0"` (`procedures.REJECT_H0`, `procedures.ACCEPT_H0`). Change detectors report `out.alarm`. Many tests also give `p_value` (anytime-valid), `log_e_value` and `lower`/`upper` (a confidence sequence).
+- `alpha` is the error rate of the whole run, however often it is looked at; it is not spent per look.
+- For streams use `Run(proc, topology=..., delivery=..., consumers=[...])` and `run_sync(run, observations)`, where each observation is `Observation(input_name, value, seq=..., key=..., source=...)`. A topology relates inputs: `KeyJoin(("arm", "y"))` joins an assignment and an outcome by `key`. `run.state` is the current state, `Recorder()` as a consumer collects the outputs.
+- `run.checkpoint()` is a JSON value; `Run.restore(proc, checkpoint)` continues the run bit for bit and refuses a checkpoint of another procedure, configuration or version (`IncompatibleCheckpoint`).
+- Each procedure states its promise in `proc.guarantee`:
+  - `exact`: error rates, coverage or false-alarm rates hold at every sample size, under the stated assumptions
+  - `asymptotic`: they hold approximately, the better the larger the sample
+  - `model`: exact probabilities under the stated model and prior; no error rate beyond the model
+  - `approximate`: an approximation even under the model (Monte Carlo, variational, stochastic approximation)
+  - `none`: a transformation of the data; no inferential claim
+  Prefer an exact procedure where one answers the question.
+
+## Which procedure for which question
+
+- Conversion rate A vs B, looked at any time: `TwoProportionTest`. Bounded metric (capped revenue, a share): `BoundedABTest`. Events per unit of exposure: `RateRatioTest`. Ratio metric (revenue per session): `RatioABTest`. Mean with a pre-experiment covariate (CUPED): `ABTest(covariate=True)`. Traffic split: `SampleRatioMismatch`. Several metrics or arms: `MultipleTests` (e-BH). A series of experiments: `OnlineFDR`.
+- A few planned interim analyses (clinical trials): `group_sequential_design(...)`, then `GroupSequentialTest`, `GroupSequentialTwoMeans`, `GroupSequentialProportions` or `GroupSequentialLogRank` built with `.from_design(design, n_max)` (for the log-rank test, the number of events instead of `n_max`); any statistic: `GroupSequentialMonitor`.
+- Simple hypothesis against simple hypothesis, fewest observations: `SPRT(family, theta0, theta1, alpha, beta)`; with a maximum sample size `TwoSPRT` or `kiefer_weiss_plan` + `PlanTest`. Families: `Gaussian(sigma)`, `Bernoulli()`, `Poisson()`, `Exponential()`.
+- Mean, anytime-valid: normal with known variance `NormalMixtureSPRT`, unknown variance `TMixtureSPRT`, bounded data `BettingMeanTest` / `BettingConfidenceSequence`, a bound on the standard deviation `CatoniConfidenceSequence`, long runs of anything `AsymptoticConfidenceSequence`. Median or any quantile: `QuantileTest`, `QuantileConfidenceSequence`. Are two groups distributed alike: `KernelTwoSampleTest`. Regression coefficients: `AnytimeLinearModel`. Survival: `AnytimeLogRankTest`.
+- Change detection: `CUSUM`, `ShiryaevRoberts` (known distributions), `MeanEDetector`, `QuantileEDetector` (nonparametric), `BayesianChangePoint`.
+- Filtering: `KalmanFilter`, `LocalLevelKalman`, `RobustKalmanFilter`, `HiddenMarkovFilter`, `OnlineHMM`, `ParticleFilter`, `BootstrapParticleFilter`.
+- Forecasting: `ExponentialSmoothing`, `AutoRegressive`, `PoissonSmoothing`, `ModelAveraging`, `ConformalForecast`, `ForecastComparison`; several series `VectorAutoRegressive`, `CrossCorrelation`, `DynamicRegression`; events `HawkesProcess`, `EventStudy`; volatility `GARCH` (fit with `fit_garch`).
+- Not in the library: a two-sample test of medians, multivariate Hawkes processes, ARIMA with moving-average terms.
+
+## Procedures (sequential_analysis.procedures)
+
+Import each with `from sequential_analysis.procedures import <Name>`.
+
+### ABTest
+
+`ABTest(allocation: 'float' = 0.5, alpha: 'float' = 0.05, *, covariate: 'bool' = False, arms: 'tuple[int, int]' = (1, 0), start: 'int' = 1000, tuned_for: 'float' = 1000.0, stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'y', covariate_input: 'str' = 'x')`
+
+- Guarantee: asymptotic.
+- Anytime-valid confidence sequence for a difference of means, with covariate adjustment.
+- Inputs: `arm`, `x`, `y`.
+- Output fields: `n: int`, `means: tuple[float | None, float | None]`, `estimate: float`, `lower: float | None`, `upper: float | None`, `variance_ratio: float | None`, `decision: str | None`.
+
+### AnytimeLinearModel
+
+`AnytimeLinearModel(covariates: 'Sequence[str]', tested: 'Sequence[str]', delta0: 'Sequence[float] | None' = None, g: 'float' = 1.0, alpha: 'float' = 0.05, *, intercept: 'bool' = True, stop_on_reject: 'bool' = False, input: 'str' = 'y')`
+
+- Guarantee: exact.
+- Anytime-valid F-test (t-test for d = 1) and confidence sequence for regression coefficients.
+- Inputs: `x`, `y`, `z`.
+- Output fields: `n: int`, `estimates: tuple[float, ...] | None`, `f: float | None`, `log_e_value: float`, `p_value: float`, `lower: float | None`, `upper: float | None`, `decision: str | None`.
+
+### AnytimeLogRankTest
+
+`AnytimeLogRankTest(alpha: 'float' = 0.05, *, theta0: 'float' = 1.0, alternative: 'str' = 'two-sided', method: 'str' = 'mixture', prior_sd: 'float' = 0.5, confidence_sequence: 'bool' = True, cs_range: 'tuple[float, float]' = (0.1, 10.0), cs_grid: 'int' = 101, arms: 'tuple[int, int]' = (1, 0), stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'kind', strata: 'int' = 1, stratum_input: 'str' = 'stratum')`
+
+- Guarantee: exact.
+- Anytime-valid log-rank test and confidence sequence for a hazard ratio.
+- Inputs: `arm`, `kind`.
+- Output fields: `n_events: int`, `at_risk: tuple[int, int]`, `log_e_value: float`, `p_value: float`, `decision: str | None`, `hazard_ratio_estimate: float`, `lower: float | None`, `upper: float | None`.
+
+### AsymptoticConfidenceSequence
+
+`AsymptoticConfidenceSequence(alpha: 'float' = 0.05, *, mean0: 'float | None' = None, start: 'int' = 1000, tuned_for: 'float' = 1000.0, stop_on_reject: 'bool' = False, input: 'str' = 'x')`
+
+- Guarantee: asymptotic.
+- Asymptotic confidence sequence for a mean: needs only a finite variance, which it estimates.
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `lower: float | None`, `upper: float | None`, `decision: str | None`.
+
+### AutoRegressive
+
+`AutoRegressive(order: 'int', *, coefficients: 'Sequence[float] | None' = None, intercept: 'float' = 0.0, sigma: 'float | None' = None, regressors: 'Sequence[str]' = (), effects: 'Sequence[float] | None' = None, forgetting: 'float' = 1.0, ridge: 'float' = 1e-06, transform: 'str | None' = None, horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'y')`
+
+- Guarantee: model.
+- AR(p) forecasts, with fixed coefficients or learnt by Bayesian regression on the lags.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `scale: tuple[float, ...]`, `df: float | None`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`, `error: float | None`, `log_score: float | None`, `log_likelihood: float`, `parameters: dict`.
+
+### BayesianChangePoint
+
+`BayesianChangePoint(model, hazard: 'float' = 0.01, *, alarm_probability: 'float | None' = None, alarm_window: 'int' = 5, prune: 'float' = 1e-12, max_hypotheses: 'int | None' = 2000, input: 'str' = 'x')`
+
+- Guarantee: model.
+- Bayesian online change-point detection with a conjugate model.
+- Inputs: `x`.
+- Output fields: `n: int`, `change_probability: float`, `recent_change_probability: float`, `most_likely_run_length: int`, `expected_run_length: float`, `segment_mean: float`, `log_evidence: float`, `decision: str | None`.
+
+### BettingConfidenceSequence
+
+`BettingConfidenceSequence(lower: 'float' = 0.0, upper: 'float' = 1.0, alpha: 'float' = 0.05, *, grid: 'int' = 1000, backend: 'str' = 'auto', input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Confidence sequence for the mean of observations bounded in [lower, upper] (Waudby-Smith and Ramdas 2024).
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `lower: float`, `upper: float`.
+
+### BettingMeanTest
+
+`BettingMeanTest(mean0: 'float', lower: 'float' = 0.0, upper: 'float' = 1.0, alpha: 'float' = 0.05, *, alternative: 'str' = 'two-sided', stop_on_reject: 'bool' = True, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Anytime-valid test of E[X] = mean0 for observations bounded in [lower, upper].
+- Inputs: `x`.
+- Output fields: `n: int`, `estimate: float`, `log_wealth: float`, `p_value: float`, `decision: str | None`.
+
+### BootstrapParticleFilter
+
+`BootstrapParticleFilter(q: 'float', r: 'float', m0: 'float' = 0.0, p0: 'float' = 1.0, particles: 'int' = 256)`
+
+- Guarantee: approximate.
+- Bootstrap particle filter for the local-level model: a randomized procedure.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: float`, `var: float`, `ess: float`.
+
+### BoundedABTest
+
+`BoundedABTest(lower: 'float' = 0.0, upper: 'float' = 1.0, allocation: 'float' = 0.5, alpha: 'float' = 0.05, *, effect0: 'float' = 0.0, alternative: 'str' = 'two-sided', arms: 'tuple[int, int]' = (1, 0), grid: 'int' = 1000, backend: 'str' = 'auto', stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'y', propensity_input: 'str | None' = None, arm_count: 'int' = 2, floor: 'float | None' = None)`
+
+- Guarantee: exact.
+- Exact anytime-valid confidence sequence and test for an effect on a bounded metric.
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `means: tuple[float | None, float | None]`, `lower: float`, `upper: float`, `log_e_value: float`, `p_value: float`, `decision: str | None`.
+
+### CUSUM
+
+`CUSUM(family: 'Family', theta0: 'float', theta1: 'float', threshold: 'float', input: 'str' = 'x')`
+
+- Guarantee: exact.
+- W_n = max(0, W_{n-1} + log f_theta1(X_n)/f_theta0(X_n)); alarm when W_n >= threshold.
+- Inputs: `x`.
+- Output fields: `n: int`, `statistic: float`, `alarm: bool`.
+
+### CatoniConfidenceSequence
+
+`CatoniConfidenceSequence(sigma: 'float', alpha: 'float' = 0.05, *, mean0: 'float | None' = None, stop_on_reject: 'bool' = False, backend: 'str' = 'auto', input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Confidence sequence for a mean, given only an upper bound `sigma` on the standard deviation.
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `lower: float | None`, `upper: float | None`, `decision: str | None`.
+
+### ConformalForecast
+
+`ConformalForecast(forecaster: 'Forecaster', *, alpha: 'float' = 0.1, step_size: 'float' = 0.05, normalize: 'bool' = True, initial: 'float | None' = None)`
+
+- Guarantee: exact.
+- Distribution-free forecast intervals around any forecaster: online conformal quantile tracking.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`, `quantiles: tuple[float, ...]`, `miscoverage: tuple[float | None, ...]`, `counts: tuple[int, ...]`, `forecaster: Any`.
+
+### CrossCorrelation
+
+`CrossCorrelation(a: 'str' = 'a', b: 'str' = 'b', *, max_lag: 'int' = 5, forgetting: 'float' = 1.0)`
+
+- Guarantee: none.
+- Correlations of a_t with b_{t-lag} for lags -max_lag..max_lag, with optional forgetting.
+- Inputs: `a`, `b`.
+- Output fields: `n: int`, `lags: tuple[int, ...]`, `correlations: tuple[float | None, ...]`, `pairs: tuple[float, ...]`, `lead: int | None`, `correlation: float | None`.
+
+### DynamicRegression
+
+`DynamicRegression(regressors: 'Sequence[str]' = ('x',), *, discount: 'float' = 0.99, variance_discount: 'float' = 1.0, intercept: 'bool' = True, prior_scale: 'float' = 10000.0, input: 'str' = 'y')`
+
+- Guarantee: model.
+- Regression of y on `regressors` with coefficients that drift.
+- Inputs: `news_count`, `news_decayed`, `news_decayed_count`, `news_sum`, `r`.
+- Output fields: `n: int`, `coefficients: tuple[float, ...]`, `sd: tuple[float, ...] | None`, `error: float`, `scale: float | None`, `z: float | None`, `log_score: float | None`, `log_likelihood: float`.
+
+### EMA
+
+`EMA(alpha: 'float', input: 'str' = 'x')`
+
+- Guarantee: none.
+- Exponential moving average: a stateful transformation, so also a procedure.
+- Inputs: `x`.
+- Output fields: `n: int`, `value: float`, `residual: float`.
+
+### EventStudy
+
+`EventStudy(horizon: 'int' = 5, *, alpha: 'float' = 0.05, start: 'int' = 30, tuned_for: 'float' = 100.0, overlap: 'str' = 'skip', returns: 'str' = 'r', event: 'str' = 'event')`
+
+- Guarantee: asymptotic.
+- Average cumulative reaction of r over the `horizon` steps after an event.
+- Inputs: `event`, `r`.
+- Output fields: `n: int`, `events: int`, `skipped: int`, `open: int`, `mean: tuple[float, ...] | None`, `lower: tuple[float, ...] | None`, `upper: tuple[float, ...] | None`.
+
+### ExponentialSmoothing
+
+`ExponentialSmoothing(alpha: 'float', *, beta: 'float' = 0.0, gamma: 'float' = 0.0, phi: 'float' = 1.0, trend: 'str | None' = None, period: 'int | None' = None, initial_level: 'float | None' = None, initial_trend: 'float' = 0.0, initial_seasonal: 'Sequence[float] | None' = None, sigma: 'float | None' = None, regressors: 'Sequence[str]' = (), coefficients: 'Sequence[float] | None' = None, forgetting: 'float' = 1.0, ridge: 'float' = 1e-06, transform: 'str | None' = None, horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'y')`
+
+- Guarantee: model.
+- Additive-error exponential smoothing (ETS) with optional trend, season and regressors.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `scale: tuple[float, ...]`, `df: float | None`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`, `error: float | None`, `log_score: float | None`, `log_likelihood: float`, `parameters: dict`.
+
+### ForecastComparison
+
+`ForecastComparison(bounds: 'Sequence[float]', *, alpha: 'float' = 0.05, min_variance: 'float | None' = None, a: 'str' = 'a', b: 'str' = 'b')`
+
+- Guarantee: exact.
+- Anytime-valid comparison of two forecasters by their losses (Choe and Ramdas 2024).
+- Inputs: `a`, `b`.
+- Output fields: `n: int`, `mean: float`, `lower: float`, `upper: float`, `better: str | None`.
+
+### GARCH
+
+`GARCH(omega: 'float', alpha: 'float', beta: 'float', *, gamma: 'float' = 0.0, mean: 'float' = 0.0, distribution: 'str' = 'normal', df: 'float | None' = None, initial_variance: 'float | None' = None, horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'r')`
+
+- Guarantee: model.
+- GARCH(1,1) or GJR-GARCH(1,1) filter with fixed parameters.
+- Inputs: `r`.
+- Output fields: `n: int`, `sigma: float`, `z: float`, `log_score: float`, `log_likelihood: float`, `forecast_sd: tuple[float, ...]`, `cumulative_sd: tuple[float, ...]`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`.
+
+### GroupSequentialLogRank
+
+`GroupSequentialLogRank(analyses: 'Sequence[int]', bounds: 'Sequence[float]', *, futility: 'Sequence[float] | None' = None, two_sided: 'bool' = False, alternative: 'str' = 'less', arms: 'tuple[int, int]' = (1, 0), arm_input: 'str' = 'arm', input: 'str' = 'kind', strata: 'int' = 1, stratum_input: 'str' = 'stratum', label: 'str' = '')`
+
+- Guarantee: asymptotic.
+- Group sequential log-rank test, with analyses after given numbers of events.
+- Inputs: `arm`, `kind`, `stratum`.
+- Output fields: `events: int`, `at_risk: tuple[int, int]`, `analysis: int | None`, `z: float | None`, `information: float | None`, `hazard_ratio_estimate: float | None`, `bound: float | None`, `decision: str | None`.
+
+### GroupSequentialMonitor
+
+`GroupSequentialMonitor(alpha: 'float', max_information: 'float', spending='obrien-fleming', *, two_sided: 'bool' = False, futility=None, power: 'float | None' = None, drift: 'float | None' = None, max_analyses: 'int' = 20, points_per_sd: 'int' = 24, input: 'str' = 'z', information_input: 'str' = 'information', final_input: 'str | None' = None)`
+
+- Guarantee: asymptotic.
+- Alpha spending at the information actually reached, for any endpoint (Lan and DeMets 1983).
+- Inputs: `information`, `z`.
+- Output fields: `analysis: int`, `fraction: float`, `z: float`, `bound: float | None`, `futility: float | None`, `spent: float`, `final: bool`, `decision: str | None`.
+
+### GroupSequentialProportions
+
+`GroupSequentialProportions(analyses: 'Sequence[int]', bounds: 'Sequence[float]', *, futility: 'Sequence[float] | None' = None, two_sided: 'bool' = False, alternative: 'str' = 'greater', arms: 'tuple[int, int]' = (1, 0), arm_input: 'str' = 'arm', input: 'str' = 'y', label: 'str' = '')`
+
+- Guarantee: asymptotic.
+- Group sequential comparison of two proportions (conversion, response, adverse event rates).
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `rate_treatment: float | None`, `rate_control: float | None`, `analysis: int | None`, `z: float | None`, `bound: float | None`, `decision: str | None`.
+
+### GroupSequentialTest
+
+`GroupSequentialTest(sigma: 'float | None', analyses: 'Sequence[int]', bounds: 'Sequence[float]', theta0: 'float' = 0.0, *, two_sided: 'bool' = False, futility: 'Sequence[float] | None' = None, label: 'str' = '', input: 'str' = 'x')`
+
+- Guarantee: depends on the configuration: Exact with a known sigma; with an estimated one the t boundaries are approximate.
+- Execute a group sequential test of a normal mean on a stream.
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `analysis: int | None`, `z: float | None`, `bound: float | None`, `decision: str | None`.
+
+### GroupSequentialTwoMeans
+
+`GroupSequentialTwoMeans(sigma: 'float | None', analyses: 'Sequence[int]', bounds: 'Sequence[float]', *, futility: 'Sequence[float] | None' = None, two_sided: 'bool' = False, alternative: 'str' = 'greater', arms: 'tuple[int, int]' = (1, 0), arm_input: 'str' = 'arm', input: 'str' = 'y', label: 'str' = '')`
+
+- Guarantee: depends on the configuration: Exact with a known sigma; with an estimated one the t boundaries are approximate.
+- Group sequential comparison of two means: the most common trial, a continuous endpoint in two arms.
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `mean_treatment: float | None`, `mean_control: float | None`, `analysis: int | None`, `z: float | None`, `bound: float | None`, `decision: str | None`.
+
+### HawkesProcess
+
+`HawkesProcess(baseline: 'float', excitation: 'float', decay: 'float', *, start: 'float' = 0.0, window: 'float | None' = None, input: 'str' = 't')`
+
+- Guarantee: model.
+- Exact filter of an exponential-kernel Hawkes process.
+- Inputs: `t`.
+- Output fields: `n: int`, `intensity: float`, `intensity_before: float`, `compensator: float`, `log_score: float`, `log_likelihood: float`, `expected: float | None`.
+
+### HiddenMarkovFilter
+
+`HiddenMarkovFilter(initial, transition, emission, *, input: 'str' = 'y')`
+
+- Guarantee: model.
+- Exact filtering distribution of the hidden state of an HMM.
+- Inputs: `y`.
+- Output fields: `n: int`, `probabilities: tuple[float, ...]`, `most_likely: int`, `log_likelihood: float`.
+
+### KalmanFilter
+
+`KalmanFilter(transition, observation, process_noise, observation_noise, initial_mean, initial_covariance, *, control=None, input: 'str' = 'y', control_input: 'str' = 'u')`
+
+- Guarantee: model.
+- Exact filter of a linear Gaussian state-space model.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `covariance: tuple[tuple[float, ...], ...]`, `innovation: tuple[float, ...]`, `innovation_covariance: tuple[tuple[float, ...], ...]`, `log_likelihood: float | None`, `weight: float`.
+
+### KernelTwoSampleTest
+
+`KernelTwoSampleTest(alpha: 'float' = 0.05, *, bandwidth: 'float | None' = None, burn_in: 'int' = 20, stop_on_reject: 'bool' = True, backend: 'str' = 'auto', a: 'str' = 'a', b: 'str' = 'b')`
+
+- Guarantee: exact.
+- Is the distribution of A the same as that of B? Anytime-valid, for any distributions.
+- Inputs: `a`, `b`.
+- Output fields: `n: int`, `payoff: float | None`, `log_wealth: float`, `p_value: float`, `decision: str | None`.
+
+### LocalLevelKalman
+
+`LocalLevelKalman(q: 'float', r: 'float', m0: 'float' = 0.0, p0: 'float' = 1.0, control: 'bool' = False)`
+
+- Guarantee: model.
+- Kalman filter for the local-level model, optionally with a known control input.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: float`, `var: float`, `innovation: float`, `innovation_var: float`.
+
+### MeanDifference
+
+`MeanDifference(a: 'str' = 'a', b: 'str' = 'b')`
+
+- Guarantee: none.
+- Running difference of two independent sample means.
+- Inputs: `a`, `b`.
+- Output fields: `n_a: int`, `n_b: int`, `difference: float | None`, `std_error: float | None`.
+
+### MeanEDetector
+
+`MeanEDetector(m: 'float', lo: 'float' = 0.0, hi: 'float' = 1.0, *, arl: 'float' = 1000.0, direction: 'str' = 'both', statistic: 'str' = 'shiryaev-roberts', grid: 'int' = 10, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Detects a change of the mean of values in [lo, hi] whose mean is m before the change.
+- Inputs: `x`.
+- Output fields: `n: int`, `statistic: float`, `alarm: bool`, `change_estimate: int | None`.
+
+### ModelAveraging
+
+`ModelAveraging(models: 'Sequence[Forecaster]', *, weights: 'Sequence[float] | None' = None, forgetting: 'float' = 1.0, coverage: 'float' = 0.9)`
+
+- Guarantee: model.
+- Bayesian model averaging of forecasters, with optional forgetting (dynamic model averaging).
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `scale: tuple[float, ...]`, `df: float | None`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`, `error: float | None`, `log_score: float | None`, `log_likelihood: float`, `parameters: dict`.
+
+### MultipleTests
+
+`MultipleTests(tests: 'Mapping[str, Procedure]', alpha: 'float' = 0.05)`
+
+- Guarantee: exact.
+- Several anytime-valid tests on the same observations, with e-BH false discovery rate control.
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `log_e_values: dict`, `rejected: tuple[str, ...]`, `results: dict`.
+
+### NormalMixtureSPRT
+
+`NormalMixtureSPRT(sigma: 'float', tau: 'float', theta0: 'float' = 0.0, alpha: 'float' = 0.05, *, stop_on_reject: 'bool' = True, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Anytime-valid test and confidence sequence for a normal mean (mixture SPRT).
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `log_lambda: float`, `p_value: float`, `lower: float`, `upper: float`, `decision: str | None`.
+
+### OnlineFDR
+
+`OnlineFDR(alpha: 'float' = 0.05, *, horizon: 'int | None' = None, input: 'str' = 'log_e')`
+
+- Guarantee: exact.
+- e-LOND: decide a stream of hypotheses, each by its e-value, with FDR <= alpha.
+- Inputs: `log_e`.
+- Output fields: `t: int`, `level: float`, `rejected: bool`, `discoveries: int`.
+
+### OnlineHMM
+
+`OnlineHMM(start: 'HiddenMarkovFilter', *, kappa: 'float' = 0.6, burn_in: 'int' = 100, min_scale: 'float' = 1e-06, average: 'bool' = True)`
+
+- Guarantee: approximate.
+- Filtering and online-EM estimation of an HMM's parameters.
+- Inputs: `y`.
+- Output fields: `n: int`, `probabilities: tuple[float, ...]`, `most_likely: int`, `transition: tuple[tuple[float, ...], ...]`, `emission: Any`, `log_likelihood: float`.
+
+### ParticleFilter
+
+`ParticleFilter(model: 'StateSpaceModel', particles: 'int' = 500, *, resample_threshold: 'float' = 0.5, backend: 'str' = 'auto', input: 'str' = 'y')`
+
+- Guarantee: approximate.
+- Bootstrap particle filter with adaptive systematic resampling.
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: Any`, `variance: Any`, `ess: float`, `log_likelihood: float`, `resampled: bool`.
+
+### PlanTest
+
+`PlanTest(continuation: 'Sequence[Sequence[float | None]]', *, contract: 'InputContract | None' = None, reject_high: 'bool' = True, label: 'str' = '', input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Execute a precomputed sequential sampling plan.
+- Inputs: `x`.
+- Output fields: `n: int`, `statistic: float`, `decision: str | None`.
+
+### PoissonSmoothing
+
+`PoissonSmoothing(discount: 'float', *, exposure: 'str | None' = None, prior: 'Sequence[float]' = (0.0, 0.0), horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'y')`
+
+- Guarantee: model.
+- Forecasts of counts: the Poisson local level model with a discounted gamma rate.
+- Inputs: `hours`, `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `scale: tuple[float, ...]`, `df: float | None`, `lower: tuple[float, ...]`, `upper: tuple[float, ...]`, `error: float | None`, `log_score: float | None`, `log_likelihood: float`, `parameters: dict`.
+
+### QuantileConfidenceSequence
+
+`QuantileConfidenceSequence(p: 'float' = 0.5, alpha: 'float' = 0.05, *, tuned_for: 'float' = 1000.0, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Confidence sequence for the p-quantile of any distribution.
+- Inputs: `x`.
+- Output fields: `n: int`, `estimate: float | None`, `lower: float | None`, `upper: float | None`.
+
+### QuantileEDetector
+
+`QuantileEDetector(q0: 'float', p: 'float' = 0.5, *, arl: 'float' = 1000.0, direction: 'str' = 'both', statistic: 'str' = 'shiryaev-roberts', grid: 'int' = 10, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Detects a change of the p-quantile, q0 before the change, for data of any distribution.
+- Inputs: `x`.
+- Output fields: `n: int`, `statistic: float`, `alarm: bool`, `change_estimate: int | None`.
+
+### QuantileTest
+
+`QuantileTest(q0: 'float', p: 'float' = 0.5, alpha: 'float' = 0.05, *, alternative: 'str' = 'two-sided', tuned_for: 'float' = 1000.0, stop_on_reject: 'bool' = True, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Anytime-valid test of H0: q0 is a p-quantile, i.e. P(X < q0) <= p <= P(X <= q0).
+- Inputs: `x`.
+- Output fields: `n: int`, `fraction_at_or_below: float | None`, `log_evidence: float`, `p_value: float`, `decision: str | None`.
+
+### RateRatioTest
+
+`RateRatioTest(alpha: 'float' = 0.05, *, rho0: 'float' = 1.0, alternative: 'str' = 'two-sided', arms: 'tuple[int, int]' = (1, 0), exposure: 'bool' = True, prior: 'float' = 0.5, grid: 'int' = 200, ratio_range: 'tuple[float, float]' = (0.1, 10.0), stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'count', exposure_input: 'str' = 'exposure')`
+
+- Guarantee: exact.
+- Exact anytime-valid test and confidence sequence for a ratio of Poisson rates.
+- Inputs: `arm`, `count`, `exposure`.
+- Output fields: `units: int`, `rates: tuple[float | None, float | None]`, `rate_ratio: float | None`, `log_e_value: float`, `p_value: float`, `decision: str | None`, `lower: float | None`, `upper: float | None`, `pairs: int`.
+
+### RatioABTest
+
+`RatioABTest(alpha: 'float' = 0.05, *, denominator: 'bool' = True, scale: 'str' = 'difference', effect0: 'float' = 0.0, arms: 'tuple[int, int]' = (1, 0), start: 'int' = 1000, tuned_for: 'float' = 1000.0, stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'y', denominator_input: 'str' = 'd')`
+
+- Guarantee: asymptotic.
+- Anytime-valid confidence sequences for a ratio metric's difference and relative lift.
+- Inputs: `arm`, `d`, `y`.
+- Output fields: `n: int`, `units: tuple[int, int]`, `ratios: tuple[float | None, float | None]`, `difference: float | None`, `std_error: float | None`, `lower: float | None`, `upper: float | None`, `lift: float | None`, `lift_lower: float | None`, `lift_upper: float | None`, `decision: str | None`.
+
+### RobustKalmanFilter
+
+`RobustKalmanFilter(*args, df: 'float' = 4.0, **kwargs)`
+
+- Guarantee: approximate.
+- Linear state-space filter with Student-t observation noise (variational Bayes).
+- Inputs: `y`.
+- Output fields: `n: int`, `mean: tuple[float, ...]`, `covariance: tuple[tuple[float, ...], ...]`, `innovation: tuple[float, ...]`, `innovation_covariance: tuple[tuple[float, ...], ...]`, `log_likelihood: float | None`, `weight: float`.
+
+### SPRT
+
+`SPRT(family: 'Family', theta0: 'float', theta1: 'float', alpha: 'float' = 0.05, beta: 'float' = 0.05, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Test theta0 against theta1; stop when the log likelihood ratio leaves (lower, upper).
+- Inputs: `x`.
+- Output fields: `n: int`, `llr: float`, `decision: str | None`.
+
+### SampleRatioMismatch
+
+`SampleRatioMismatch(weights: 'Sequence[float]' = (0.5, 0.5), alpha: 'float' = 0.001, *, concentration: 'float' = 100.0, stop_on_reject: 'bool' = False, input: 'str' = 'arm')`
+
+- Guarantee: exact.
+- Anytime-valid test that units arrive in each arm in the intended proportions.
+- Inputs: `arm`.
+- Output fields: `n: int`, `counts: tuple[int, ...]`, `proportions: tuple[float, ...]`, `log_e_value: float`, `p_value: float`, `decision: str | None`.
+
+### SequentialSignTest
+
+`SequentialSignTest(median0: 'float' = 0.0, alpha: 'float' = 0.05, *, alternative: 'str' = 'two-sided', stop_on_reject: 'bool' = True, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Anytime-valid sign test of the median: H0 says P(X > median0) = P(X < median0).
+- Inputs: `x`.
+- Output fields: `n: int`, `estimate: float`, `log_wealth: float`, `p_value: float`, `decision: str | None`.
+
+### ShiryaevRoberts
+
+`ShiryaevRoberts(family: 'Family', theta0: 'float', theta1: 'float', threshold: 'float', input: 'str' = 'x')`
+
+- Guarantee: exact.
+- The Shiryaev-Roberts change-point detector.
+- Inputs: `x`.
+- Output fields: `n: int`, `log_statistic: float`, `alarm: bool`.
+
+### TMixtureSPRT
+
+`TMixtureSPRT(theta0: 'float' = 0.0, effect: 'float' = 0.5, alpha: 'float' = 0.05, *, stop_on_reject: 'bool' = True, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Anytime-valid t-test and confidence sequence: normal mean, unknown variance.
+- Inputs: `x`.
+- Output fields: `n: int`, `mean: float`, `sd: float | None`, `t: float | None`, `log_bf: float`, `p_value: float`, `lower: float | None`, `upper: float | None`, `decision: str | None`.
+
+### ThompsonAllocation
+
+`ThompsonAllocation(arms: 'int' = 2, *, metric: 'str' = 'binary', floor: 'float' = 0.05, threshold: 'float' = 0.0, min_units: 'int' = 100, update_every: 'int' = 100, prior: 'tuple[float, float]' = (1.0, 1.0), control: 'int | None' = None, reserve: 'float' = 0.0, arm_input: 'str' = 'arm', input: 'str' = 'y')`
+
+- Guarantee: model.
+- Traffic split by Thompson sampling with a floor, and the expected-loss deployment rule.
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `shares: tuple[float, ...]`, `counts: tuple[int, ...]`, `means: tuple[float | None, ...]`, `best: tuple[float, ...]`, `loss: tuple[float, ...]`, `leader: int | None`, `deploy: int | None`.
+
+### TwoProportionTest
+
+`TwoProportionTest(alpha: 'float' = 0.05, *, alternative: 'str' = 'two-sided', method: 'str' = 'grow', block: 'tuple[int, int]' = (1, 1), arms: 'tuple[int, int]' = (1, 0), prior: 'tuple[float, float]' = (0.5, 0.5), stop_on_reject: 'bool' = False, arm_input: 'str' = 'arm', input: 'str' = 'y')`
+
+- Guarantee: exact.
+- Exact anytime-valid comparison of two conversion rates.
+- Inputs: `arm`, `y`.
+- Output fields: `n: int`, `rates: tuple[float | None, float | None]`, `difference: float | None`, `log_e_value: float`, `p_value: float`, `decision: str | None`, `blocks: int`.
+
+### TwoSPRT
+
+`TwoSPRT(family: 'Family', theta0: 'float', theta1: 'float', alpha0: 'float' = 0.05, alpha1: 'float' = 0.05, theta_star: 'float | None' = None, thresholds: 'tuple[float, float] | None' = None, input: 'str' = 'x')`
+
+- Guarantee: exact.
+- Lorden's 2-SPRT for the Kiefer-Weiss problem.
+- Inputs: `x`.
+- Output fields: `n: int`, `l0: float`, `l1: float`, `decision: str | None`.
+
+### VectorAutoRegressive
+
+`VectorAutoRegressive(series: 'Sequence[str]', order: 'int', *, coefficients: 'Sequence[Sequence[Sequence[float]]] | None' = None, intercept: 'Sequence[float] | None' = None, covariance: 'Sequence[Sequence[float]] | None' = None, forgetting: 'float' = 1.0, ridge: 'float' = 1e-06, horizon: 'int' = 1, coverage: 'float' = 0.9)`
+
+- Guarantee: model.
+- VAR(p) forecasts of several series, with fixed coefficients or learnt online.
+- Inputs: `a`, `b`.
+- Output fields: `n: int`, `forecast: tuple[tuple[float, ...], ...] | None`, `scale: tuple[tuple[float, ...], ...] | None`, `lower: tuple[tuple[float, ...], ...] | None`, `upper: tuple[tuple[float, ...], ...] | None`, `error: tuple[float, ...] | None`, `log_score: float | None`, `log_likelihood: float`.
+
+## sequential_analysis.procedures: families, models and helpers
+
+- `Bernoulli(*args, **kwargs)`: Binary observations with unknown success probability.
+- `BetaBernoulliModel(a: 'float' = 1.0, b: 'float' = 1.0)`: 0/1 data with unknown success probability ~ Beta(a, b).
+- `CategoricalEmission(probabilities)`: y in {0, ..., M-1} with `P(y = s | z = k) = probabilities[k][s]`.
+- `Exponential(*args, **kwargs)`: Non-negative durations with unknown rate (mean 1/rate).
+- `Family(*args, **kwargs)`: What the likelihood-ratio procedures need from a one-parameter family.
+- `Gaussian(sigma: 'float' = 1.0)`: Normal observations with unknown mean and known standard deviation.
+- `GaussianEmission(means, sds)`: y | z = k ~ N(means[k], sds[k]^2).
+- `LinearGaussianModel(phi: 'float', q: 'float', r: 'float', m0: 'float' = 0.0, p0: 'float' = 1.0)`: z_t = phi z_{t-1} + N(0, q), y_t = z_t + N(0, r), z_0 ~ N(m0, p0).
+- `MultivariateGaussianEmission(means, covariances)`: y | z = k ~ N_d(means[k], covariances[k]), for a vector observation y of length d.
+- `NormalGammaModel(mu0: 'float' = 0.0, kappa0: 'float' = 1.0, alpha0: 'float' = 1.0, beta0: 'float' = 1.0)`: Normal data with unknown mean and precision: mean | tau ~ N(mu0, 1/(kappa0 tau)), tau ~ Gamma(alpha0, beta0).
+- `Poisson(*args, **kwargs)`: Counts with unknown rate.
+- `PoissonEmission(rates)`: y | z = k ~ Poisson(rates[k]).
+- `PoissonGammaModel(shape: 'float' = 1.0, rate: 'float' = 1.0)`: Counts with unknown rate: rate ~ Gamma(shape, rate).
+- `StateSpaceModel(*args, **kwargs)`: What ParticleFilter needs from a model. States are floats (dimension 1) or tuples of floats.
+- `StochasticVolatilityModel(mu: 'float', phi: 'float', sigma: 'float')`: Log-variance h_t = mu + phi (h_{t-1} - mu) + sigma eta_t; return y_t = exp(h_t / 2) eps_t.
+- `StudentTEmission(means, scales, df)`: y | z = k ~ means[k] + scales[k] T(df[k]): location-scale Student t, robust to outliers.
+- `StudentTLocalLevel(q: 'float', scale: 'float', df: 'float', m0: 'float' = 0.0, p0: 'float' = 1.0)`: z_t = z_{t-1} + N(0, q), y_t = z_t + scale * t_df, z_0 ~ N(m0, p0): a level observed with outliers.
+- `averaged_counts(*, discounts: 'Sequence[float]' = (0.5, 0.7, 0.8, 0.9, 0.95, 0.98, 0.995, 1.0), exposure: 'str | None' = None, forgetting: 'float' = 1.0, horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'y') -> 'ModelAveraging'`: Count forecasts that learn how fast the rate moves: model averaging over a grid of discounts.
+- `averaged_smoothing(*, trend: 'str | None' = None, period: 'int | None' = None, alphas: 'Sequence[float]' = (0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9), betas: 'Sequence[float]' = (0.01, 0.1, 0.3), gammas: 'Sequence[float]' = (0.01, 0.1, 0.3), phis: 'Sequence[float]' = (0.9, 0.98), regressors: 'Sequence[str]' = (), transform: 'str | None' = None, forgetting: 'float' = 1.0, horizon: 'int' = 1, coverage: 'float' = 0.9, input: 'str' = 'y') -> 'ModelAveraging'`: Exponential smoothing that learns its smoothing parameters: model averaging over a grid.
+- `e_bh(log_e_values: 'Sequence[float]', alpha: 'float') -> 'list[int]'`: Indices rejected by the e-BH procedure at level alpha, from log e-values.
+- `emission_from_spec(spec) -> 'CategoricalEmission | GaussianEmission | PoissonEmission | MultivariateGaussianEmission | StudentTEmission'`: The emission model whose `spec()` is `spec` (mirrors emissionFromSpec of the TypeScript executor).
+- `kiefer_weiss_point(family: 'Family', theta0: 'float', theta1: 'float', a0: 'float', a1: 'float') -> 'float'`: Intermediate point at which both boundaries are reached at the same rate.
+
+## sequential_analysis: running procedures on streams, checkpoints, topologies
+
+- `AsOfJoin(bars: 'str', events: 'str', *, half_life: 'float | None' = None, prefix: 'str | None' = None)`: Attach to every bar what a stream of events said up to the bar's time.
+- `Chain(first: 'Procedure', second: 'Procedure', link: 'Callable[[Any], StatInput | None]', link_name: 'str | None' = None)`: Feed the outputs of `first` into `second`.
+- `ContractViolation(*args, **kwargs)`: A statistical input does not satisfy the procedure's input contract.
+- `Delivery(policy: 'str' = 'arrival', *, dedup: 'bool' = True, start: 'int' = 0)`: Delivery: per-source ordering and deduplication.
+- `Difference(a: 'str', b: 'str', out: 'str' = 'x')`: {a, b} -> {out: a - b}, typically after pairing two inputs.
+- `Field(field: 'str', out: 'str' = 'x')`: Take one field of a procedure output (a dataclass or a dict) as the input `out`; None skips the step.
+- `IncompatibleCheckpoint(*args, **kwargs)`: A checkpoint does not match the procedure, topology or delivery it is restored into.
+- `Independent(*args, **kwargs)`: Unpaired samples: every observation is a statistical input of its own.
+- `InputContract(name: 'str', kind: 'str' = 'real', shape: 'tuple[int, ...]' = (), lower: 'float | None' = None, upper: 'float | None' = None, unit: 'str | None' = None, description: 'str' = '') -> None`: Contract of one logical input.
+- `InvalidInputStreak(*args, **kwargs)`: Too many consecutive invalid inputs: the source, not a message, is probably broken.
+- `JsonlSink(path: 'str | os.PathLike[str]', encode: 'Callable[[Any], Any]', *, sync: 'str' = 'flush')`: Appends one JSON line per output to a file.
+- `KeyJoin(inputs: 'Sequence[str]')`: Join observations that carry the same key. Emits in completion order.
+- `Lagged(inner: 'Procedure', lags: 'Mapping[str, int]')`: Run `inner` with the recent past of some inputs as extra inputs.
+- `LifecycleError(*args, **kwargs)`: An operation is not permitted in the current run status.
+- `NumericalError(*args, **kwargs)`: A state transition produced a non-finite or otherwise invalid value.
+- `Observation(input: 'str', value: 'Any', source: 'str' = '', seq: 'int | None' = None, key: 'Any' = None, time: 'float | None' = None) -> None`: One value as delivered by an adapter, before topology.
+- `OrderingError(*args, **kwargs)`: An observation violates the delivery or topology ordering policy.
+- `OutputEvent(run_id: 'str', t: 'int', output: 'Any', terminal: 'bool') -> None`: OutputEvent(run_id: 'str', t: 'int', output: 'Any', terminal: 'bool')
+- `PositionalPair(inputs: 'Sequence[str]')`: Pair the i-th observation of every input: (A_1, B_1), (A_2, B_2), ...
+- `Procedure(*args, **kwargs)`: Semantic contract of a Sequential Procedure.
+- `Recorder()`: Keeps every event in memory.
+- `Run(procedure: 'Procedure', *, topology: 'Topology | None' = None, delivery: 'Delivery | None' = None, consumers: 'Sequence[Consumer]' = (), seed: 'int | None' = None, run_id: 'str | None' = None, initial_state: 'Any' = None, initialized_from: 'Any' = 'default', on_invalid: 'str | type[Exception]' = 'skip', max_invalid_streak: 'int | None' = None, log: 'Any' = None, clock: 'Callable[[], float]' = <built-in function time>)`: Run: one concrete execution of a procedure.
+- `RunStatus`: an enumeration of `CREATED`, `RUNNING`, `PAUSED`, `COMPLETED`, `FAILED`.
+- `SequentialAnalysisError(*args, **kwargs)`: Base class for all errors raised by this package.
+- `SplitMix64(state: 'int')`: Statistical random state.
+- `TimeAlign(inputs: 'Sequence[str]', tolerance: 'float')`: Align two time-ordered inputs within a tolerance.
+- `Transform(*args, **kwargs)`: Map one statistical input (or one procedure output) to a statistical input, or None to drop it.
+- `checkpoint_id(checkpoint: 'dict') -> 'str'`: Content hash of a checkpoint.
+- `difference(a: 'str', b: 'str', out: 'str' = 'x') -> 'Difference'`: Map a paired input {a, b} to the single input {out: a - b}.
+- `equivalent(a: 'Any', b: 'Any', abs_tol: 'float' = 0.0, rel_tol: 'float' = 0.0) -> 'bool'`: Structural equivalence under a numerical contract.
+- `lag_name(source: 'str', lag: 'int') -> 'str'`: The name of an input's value `lag` steps ago, as Lagged passes it on.
+- `load_checkpoint(path: 'str | os.PathLike') -> 'dict'`: Checkpoint storage. Checkpoints are plain JSON values; this module only moves them to disk.
+- `run_async(run: 'Run', producers: 'Sequence[AsyncIterable[Observation]]', *, maxsize: 'int' = 64, overflow: 'str' = 'block', stop_on_terminal: 'bool' = True) -> 'int'`: Concurrent acquisition, ordered delivery, serialized transitions.
+- `run_sync(run: 'Run', source: 'Iterable[Observation]', *, stop_on_terminal: 'bool' = True) -> 'int'`: Pull observations from `source` and offer them in order. Returns the number consumed.
+- `save_checkpoint(path: 'str | os.PathLike', checkpoint: 'dict') -> 'None'`: Write atomically: a crash leaves either the old file or the new one, never a torn one.
+- `trajectory(procedure: 'Procedure[S, O]', inputs: 'Iterable[StatInput]', *, seed: 'int | None' = None, state: 'S | None' = None) -> 'list[tuple[S, O]]'`: Reference semantics: fold F over an ordered input history.
+- `validate_checkpoint(checkpoint: 'Any') -> 'None'`: Check the structure of a checkpoint; raise IncompatibleCheckpoint naming the first problem.
+- `validate_input(procedure, x: 'Any') -> 'None'`: Check one statistical input against a procedure's contracts.
+
+## sequential_analysis.sources: observations from values, files, simulations and logs
+
+- `from_values(input: 'str', values: 'Iterable[Any]', *, source: 'str' = '', start: 'int' = 0, times: 'Sequence[float] | None' = None, keys: 'Sequence[Any] | None' = None) -> 'Iterator[Observation]'`: Bind a sequence of values to a logical input, numbering them from `start`.
+- `from_csv(path: 'str | os.PathLike[str]', input: 'str', value: 'str', *, convert: 'Callable[[str], Any]' = <class 'float'>, source: 'str' = '', seq: 'str | None' = None, time: 'str | None' = None, key: 'str | None' = None, start: 'int' = 0) -> 'Iterator[Observation]'`: Read observations of one logical input from a CSV file with a header row.
+- `gaussian(input: 'str', mean: 'float | Callable[[int], float]', sd: 'float', *, seed: 'int', n: 'int | None' = None, source: 'str' = '') -> 'Iterator[Observation]'`: A simulator. Uses simulation randomness, a stream separate from any procedure's R_t.
+- `interleave(*sources: 'Iterable[Observation]') -> 'Iterator[Observation]'`: Round-robin over pull sources until all are exhausted.
+- `merge_ordered(*sources: 'Iterable[Observation]') -> 'Iterator[Observation]'`: Deterministic total order over time-ordered sources: (time, source, seq).
+- `skip_to(source: 'Iterable[Observation]', positions: 'Mapping[str, int] | Delivery') -> 'Iterator[Observation]'`: Seek: drop what a restored run has already consumed, according to its source checkpoint.
+- `as_async(source: 'Iterable[Observation]', delay: 'float | Callable[[], float]' = 0.0) -> 'AsyncIterator[Observation]'`: Turn a pull source into a push producer, optionally with (random) delays.
+- `ObservationLog(path: 'str | os.PathLike[str] | None' = None, *, sync: 'str' = 'flush')`: The delivered history of a run: every observation delivery passed on, in order.
+- `replay(log) -> 'Iterator[Observation]'`: Replay a recorded delivered history (an ObservationLog or a path to one).
+
+## sequential_analysis.adapters: observations from DataFrames, SQL and Kafka
+
+- `from_dataframe(frame: 'Any', inputs: 'Mapping[str, str] | Sequence[str] | str', *, seq: 'str | None' = None, key: 'str | None' = None, time: 'str | None' = None, source: 'str' = '', start: 'int' = 0, missing: 'str' = 'skip', delivery: 'Delivery | None' = None) -> 'Iterator[Observation]'`: Observations from a pandas or polars DataFrame, row by row.
+- `from_sql(connection: 'Any', query: 'str', parameters: 'Sequence[Any] | Mapping[str, Any]' = (), *, inputs: 'Mapping[str, str] | Sequence[str] | str', seq: 'str | None' = None, key: 'str | None' = None, time: 'str | None' = None, source: 'str' = '', start: 'int' = 0, missing: 'str' = 'skip', batch: 'int' = 1000, delivery: 'Delivery | None' = None) -> 'Iterator[Observation]'`: Observations from a query on a DB-API 2.0 connection (sqlite3, psycopg, mysqlclient, ...).
+- `next_position(delivery: 'Delivery', source: 'str') -> 'int'`: The first sequence number of `source` a restored run still needs (its delivery's start if unseen).
+- `from_kafka(messages: 'Iterable[Any]', inputs: 'Mapping[str, str] | Sequence[str] | str', *, decode: 'Callable[[bytes], Any]' = <function loads>, key: 'str | None' = None, time: 'str | None' = None, delivery: 'Delivery | None' = None, missing: 'str' = 'skip') -> 'Iterator[Observation]'`: Observations from Kafka messages (a kafka-python or confluent-kafka consumer, or any iterable of messages).
+- `kafka_offsets(delivery: 'Delivery', topic: 'str') -> 'dict[int, int]'`: Per partition of `topic`, the offset to seek a consumer to when resuming a restored run.
+
+## sequential_analysis.group_sequential: group sequential designs
+
+- `spending_function(kind, alpha: 'float') -> 'Callable[[float], float]'`: Cumulative alpha spent by information fraction t, for one side.
+- `GroupSequentialDesign(fractions: 'tuple[float, ...]', bounds: 'tuple[float, ...]', spent: 'tuple[float, ...]', alpha: 'float', two_sided: 'bool', futility: 'tuple[float, ...] | None' = None, beta_spent: 'tuple[float, ...] | None' = None, drift: 'float | None' = None, spending: 'Any' = None, futility_spending: 'Any' = None, points_per_sd: 'int' = 24) -> None`: GroupSequentialDesign(fractions: 'tuple[float, ...]', bounds: 'tuple[float, ...]', spent: 'tuple[float, ...]', alpha: 'float', two_sided: 'bool', futility: 'tuple[float, ...] | None' = None, beta_spent: 'tuple[float, ...] | None' = None, drift: 'float | None' = None, spending: 'Any' = None, futility_spending: 'Any' = None, points_per_sd: 'int' = 24)
+- `group_sequential_design(alpha: 'float', fractions: 'Sequence[float]', spending='obrien-fleming', *, two_sided: 'bool' = False, futility=None, power: 'float | None' = None, points_per_sd: 'int' = 24) -> 'GroupSequentialDesign'`: Efficacy boundaries, and optionally futility boundaries, for K analyses.
+
+## sequential_analysis.design: optimal sequential plans and their exact operating characteristics
+
+- `Lattice(step: 'float', offset: 'int', weights: 'tuple[float, ...]', exact: 'bool', shift: 'float' = 0.0) -> None`: X takes the values (offset + i) * step + shift with probabilities weights[i].
+- `lattice(family: 'Family', theta: 'float', step: 'float | None' = None) -> 'Lattice'`: The distribution of one observation on the lattice used by the design.
+- `OperatingCharacteristic(theta: 'float', reject: 'float', accept: 'float', expected_n: 'float', stop: 'tuple[float, ...]', exact: 'bool') -> None`: OperatingCharacteristic(theta: 'float', reject: 'float', accept: 'float', expected_n: 'float', stop: 'tuple[float, ...]', exact: 'bool')
+- `operating_characteristic(plan: 'PlanTest', family: 'Family', theta: 'float', *, step: 'float | None' = None) -> 'OperatingCharacteristic'`: Operating characteristic of `plan` for observations from `family` at `theta`.
+- `KieferWeissDesign(plan: 'PlanTest', theta_star: 'float', lambda0: 'float', lambda1: 'float', at_theta0: 'OperatingCharacteristic', at_theta1: 'OperatingCharacteristic', at_theta_star: 'OperatingCharacteristic', lagrangian: 'float', exact: 'bool', family: 'Family | None' = None, step: 'float | None' = None) -> None`: KieferWeissDesign(plan: 'PlanTest', theta_star: 'float', lambda0: 'float', lambda1: 'float', at_theta0: 'OperatingCharacteristic', at_theta1: 'OperatingCharacteristic', at_theta_star: 'OperatingCharacteristic', lagrangian: 'float', exact: 'bool', family: 'Family | None' = None, step: 'float | None' = None)
+- `maximum_expected_n(plan: 'PlanTest', family: 'Family', lower: 'float', upper: 'float', *, step: 'float | None' = None, grid: 'int' = 24) -> 'tuple[float, float]'`: The largest expected sample size of `plan` for theta between `lower` and `upper`, and its argmax.
+- `kiefer_weiss_plan(theta0: 'float', theta1: 'float', alpha0: 'float', alpha1: 'float', horizon: 'int', *, family: 'Family | None' = None, theta_star: 'float | str | None' = None, step: 'float | None' = None, cache: 'Any' = None) -> 'KieferWeissDesign'`: Optimal plan with at most `horizon` observations.
+- `tabulated_least_favourable(alpha0: 'float', alpha1: 'float', rho: 'float') -> 'float | None'`: lambda = (theta* - theta0) / (theta1 - theta0) of the least favourable theta* for normal data, from the table.
+
+## sequential_analysis.planning: power and duration by simulation
+
+- `SimulationSummary(runs: 'int', max_n: 'int', stopped: 'int', stopping_times: 'tuple[int, ...]', alpha_level: 'float') -> None`: SimulationSummary(runs: 'int', max_n: 'int', stopped: 'int', stopping_times: 'tuple[int, ...]', alpha_level: 'float')
+- `simulate(make: 'Callable[[], Procedure]', draw: 'Callable[[random.Random], Mapping[str, Any]]', *, runs: 'int' = 200, max_n: 'int' = 100000, seed: 'int' = 0, stop: 'Callable[[Any], bool]' = <function _stopped>, level: 'float' = 0.05) -> 'SimulationSummary'`: Run `make()` on `draw(rnd)` inputs until `stop(output)` or max_n inputs, `runs` times.
+- `conversion_units(p_treatment: 'float', p_control: 'float', allocation: 'float' = 0.5, *, arms: 'tuple[int, int]' = (1, 0)) -> 'Callable[[random.Random], dict]'`: Users of a 0/1 metric: {"arm", "y"}, treatment with probability `allocation`.
+- `metric_units(treatment: 'Callable[[random.Random], float]', control: 'Callable[[random.Random], float]', allocation: 'float' = 0.5, *, arms: 'tuple[int, int]' = (1, 0)) -> 'Callable[[random.Random], dict]'`: Users of any metric: {"arm", "y"}, with y drawn by `treatment(rnd)` or `control(rnd)`.
+
+## sequential_analysis.forecasting: fitting forecasters on a history
+
+- `ForecastFit(model: 'Any', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', evaluations: 'int') -> None`: ForecastFit(model: 'Any', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', evaluations: 'int')
+- `forecast_records(values: 'Sequence[float]', regressors: 'Mapping[str, Sequence[float]] | None' = None, *, horizon: 'int' = 1, input: 'str' = 'y') -> 'list[dict]'`: Records for the forecasters: {input: value, name: [z_t, z_t+1, ..., z_t+horizon]} for each regressor.
+- `nelder_mead(f: 'Callable[[Sequence[float]], float]', start: 'Sequence[float]', *, step: 'float' = 0.5, tolerance: 'float' = 1e-10, max_evaluations: 'int' = 4000) -> 'tuple[list[float], float, int]'`: Minimize f from `start` by the Nelder-Mead simplex (standard coefficients); (x, f(x), evaluations).
+- `fit_ets(inputs: 'Iterable[Any]', *, trend: 'str | None' = None, period: 'int | None' = None, regressors: 'Sequence[str]' = (), transform: 'str | None' = None, input: 'str' = 'y', horizon: 'int' = 1, coverage: 'float' = 0.9, max_evaluations: 'int' = 4000) -> 'ForecastFit'`: Maximum likelihood exponential smoothing (additive errors).
+- `fit_ar(inputs: 'Iterable[Any]', order: 'int', *, regressors: 'Sequence[str]' = (), transform: 'str | None' = None, input: 'str' = 'y', horizon: 'int' = 1, coverage: 'float' = 0.9) -> 'ForecastFit'`: Conditional least squares AR(p) with intercept and regressors.
+- `fit_var(inputs: 'Iterable[Mapping[str, Any]]', series: 'Sequence[str]', order: 'int | None' = None, *, max_order: 'int' = 8, horizon: 'int' = 1, coverage: 'float' = 0.9) -> 'ForecastFit'`: Least-squares VAR(p) with intercept; with order None, p chosen by AIC up to max_order. See the docstring.
+- `fit_counts(inputs: 'Iterable[Any]', *, exposure: 'str | None' = None, prior: 'Sequence[float]' = (0.0, 0.0), input: 'str' = 'y', horizon: 'int' = 1, coverage: 'float' = 0.9, tolerance: 'float' = 1e-06) -> 'ForecastFit'`: The PoissonSmoothing discount that maximizes the prequential likelihood of the history.
+
+## sequential_analysis.garch_fit: fitting GARCH on a history
+
+- `GARCHFit(model: 'GARCH', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', backcast: 'float', evaluations: 'int') -> None`: GARCHFit(model: 'GARCH', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', backcast: 'float', evaluations: 'int')
+- `backcast(residuals: 'Sequence[float]') -> 'float'`: arch's starting value: an exponentially weighted mean of the first min(75, n) squared residuals.
+- `garch_log_likelihood(returns: 'Sequence[float]', mean: 'float', omega: 'float', alpha: 'float', beta: 'float', gamma: 'float' = 0.0, df: 'float | None' = None, v0: 'float | None' = None) -> 'float'`: The log-likelihood arch maximizes: Gaussian (df None) or unit-variance Student t, from the backcast v0.
+- `fit_garch(inputs: 'Iterable[Any]', *, distribution: 'str' = 'normal', asymmetric: 'bool' = False, zero_mean: 'bool' = False, input: 'str' = 'r', horizon: 'int' = 1, coverage: 'float' = 0.9, max_evaluations: 'int' = 4000) -> 'GARCHFit'`: Maximum-likelihood GARCH(1,1), or GJR-GARCH(1,1) with `asymmetric`.
+
+## sequential_analysis.events: fitting and simulating Hawkes processes
+
+- `HawkesFit(model: 'HawkesProcess', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', evaluations: 'int') -> None`: HawkesFit(model: 'HawkesProcess', state: 'Any', log_likelihood: 'float', aic: 'float', parameters: 'dict', evaluations: 'int')
+- `hawkes_log_likelihood(times: 'Sequence[float]', baseline: 'float', excitation: 'float', decay: 'float', start: 'float', end: 'float') -> 'float'`: Exact log-likelihood of event times on [start, end] under an exponential-kernel Hawkes process.
+- `fit_hawkes(times: 'Sequence[float]', *, start: 'float | None' = None, end: 'float | None' = None, window: 'float | None' = None, input: 'str' = 't', max_evaluations: 'int' = 2000) -> 'HawkesFit'`: Maximum-likelihood exponential-kernel Hawkes process.
+- `simulate_hawkes(baseline: 'float', excitation: 'float', decay: 'float', end: 'float', *, start: 'float' = 0.0, seed: 'int' = 0) -> 'list[float]'`: Event times on [start, end] by Ogata's thinning (Python's random.Random(seed)).
+
+## sequential_analysis.hmm_fit: fitting hidden Markov models on a history
+
+- `HMMFit(model: 'HiddenMarkovFilter', log_likelihood: 'float', history: 'tuple[float, ...]', iterations: 'int', converged: 'bool', restarts: 'tuple[float, ...]') -> None`: HMMFit(model: 'HiddenMarkovFilter', log_likelihood: 'float', history: 'tuple[float, ...]', iterations: 'int', converged: 'bool', restarts: 'tuple[float, ...]')
+- `e_step(model: 'HiddenMarkovFilter', ys) -> '_Expectations'`: Expected complete-data sufficient statistics of a series under a model (scaled forward-backward).
+- `fit_hmm(inputs: 'Iterable[Mapping[str, Any]]', start: 'HiddenMarkovFilter', *, iterations: 'int' = 500, tolerance: 'float' = 1e-09, min_scale: 'float' = 1e-06, restarts: 'int' = 0, seed: 'int' = 0, fit_initial: 'bool' = True, fit_transition: 'bool' = True) -> 'HMMFit'`: Maximum-likelihood HMM parameters for a recorded series, by EM from `start` (and `restarts` random starts).
+
+## sequential_analysis.smoothing: offline smoothing
+
+- `KalmanSmoothing(means: 'tuple[tuple[float, ...], ...]', covariances: 'tuple[la.Matrix, ...]', filtered_means: 'tuple[tuple[float, ...], ...]', filtered_covariances: 'tuple[la.Matrix, ...]', log_likelihood: 'float | None') -> None`: KalmanSmoothing(means: 'tuple[tuple[float, ...], ...]', covariances: 'tuple[la.Matrix, ...]', filtered_means: 'tuple[tuple[float, ...], ...]', filtered_covariances: 'tuple[la.Matrix, ...]', log_likelihood: 'float | None')
+- `kalman_smoother(filter: 'KalmanFilter', inputs: 'Iterable[Mapping[str, Any]]') -> 'KalmanSmoothing'`: Rauch-Tung-Striebel smoothing of `inputs` (the statistical inputs, as given to the filter's step).
+- `HMMSmoothing(probabilities: 'tuple[tuple[float, ...], ...]', filtered: 'tuple[tuple[float, ...], ...]', log_likelihood: 'float') -> None`: HMMSmoothing(probabilities: 'tuple[tuple[float, ...], ...]', filtered: 'tuple[tuple[float, ...], ...]', log_likelihood: 'float')
+- `forward_backward(hmm: 'HiddenMarkovFilter', inputs: 'Iterable[Mapping[str, Any]]') -> 'HMMSmoothing'`: Smoothed state probabilities of a hidden Markov model over `inputs`.
+- `ViterbiPath(states: 'tuple[int, ...]', log_probability: 'float') -> None`: ViterbiPath(states: 'tuple[int, ...]', log_probability: 'float')
+- `viterbi(hmm: 'HiddenMarkovFilter', inputs: 'Iterable[Mapping[str, Any]]') -> 'ViterbiPath'`: The most probable sequence of hidden states (ties go to the smaller state index).
+
+## sequential_analysis.plotting: plots (needs matplotlib)
+
+- `plot_e_process(outputs: 'Any', *, alpha: 'float | None' = None, field: 'str | None' = None, ax: 'Any' = None) -> 'Any'`: The e-value of a test against the number of observations, on a log scale.
+- `plot_confidence_sequence(outputs: 'Any', *, estimate: 'Any' = None, truth: 'float | None' = None, ax: 'Any' = None) -> 'Any'`: The confidence sequence (lower, upper) as a band against the number of observations.
+- `plot_group_sequential_design(design: 'Any', *, observed: 'Any' = None, scale: 'str' = 'z', ax: 'Any' = None) -> 'Any'`: Efficacy (and futility) boundaries of a group sequential design against information fraction.
+- `plot_detection(outputs: 'Any', *, threshold: 'float | None' = None, change_point: 'float | None' = None, field: 'str | None' = None, ax: 'Any' = None) -> 'Any'`: A change detector's statistic against the number of observations, with the threshold and the alarm.
+- `plot_filter(outputs: 'Any', *, observations: 'Sequence[Number] | None' = None, truth: 'Any' = None, component: 'int' = 0, smoothed: 'Any' = None, ax: 'Any' = None) -> 'Any'`: A filter's mean with a band of +-2 standard deviations, against the number of observations.
+- `plot_stopping_times(summary_or_samples: 'Any', *, kind: 'str' = 'ecdf', ax: 'Any' = None) -> 'Any'`: The distribution of the stopping time, from `planning.simulate` or a list of stopping times.

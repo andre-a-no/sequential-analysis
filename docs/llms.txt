@@ -9,6 +9,8 @@
 
 The whole documentation in one file, without the API reference: https://andre-a-no.github.io/sequential-analysis/llms-full.txt
 
+For writing code with the library: https://andre-a-no.github.io/sequential-analysis/llms-api.txt gives, generated from the code, how a procedure is called and every public procedure's constructor, guarantee, input names and output fields, then the signatures of the other public functions.
+
 ## User guide
 
 - [Overview](https://andre-a-no.github.io/sequential-analysis/guide/): the library in one paragraph and the questions the guide answers
