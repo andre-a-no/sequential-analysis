@@ -12,6 +12,10 @@ how to run [Wald's SPRT](guide/sprt.md), how to plan
 [interim analyses of a trial](guide/clinical-trials.md), and how to
 [detect a change in a stream](guide/change-detection.md).
 
+For a non-code introduction, start with the
+[plain-language overview](overview.md): what the library does, which part to
+choose, its inputs and outputs, and the limits of its guarantees.
+
 The library has these kinds of methods:
 
 * **Classical sequential tests:** Wald's SPRT, Lorden's 2-SPRT, optimal
