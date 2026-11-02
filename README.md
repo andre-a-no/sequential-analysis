@@ -23,6 +23,10 @@ and resumed bit for bit, in Python or in the TypeScript executor.
 
 Documentation and tutorials: https://andre-a-no.github.io/sequential-analysis/
 
+The [plain-language overview](docs/overview.md) explains use cases, inputs and
+outputs, method selection and limits without requiring code. [llms.txt](llms.txt)
+indexes source documentation; [AGENTS.md](AGENTS.md) gives development guidance.
+
 New here? Start with the [user guide](https://andre-a-no.github.io/sequential-analysis/guide/).
 It answers the common questions with code that runs: stopping an A/B test
 early, confidence sequences, the SPRT, interim analyses of a trial and

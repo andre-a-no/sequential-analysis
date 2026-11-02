@@ -73,6 +73,8 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 nav:
   - Home: index.md
+  - Plain-language overview: overview.md
+  - Обзор на русском: overview.ru.md
   - User guide:
       - Overview: guide/index.md
       - "Why can't I look at a p-value every day?": guide/peeking.md
