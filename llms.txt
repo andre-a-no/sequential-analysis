@@ -1,0 +1,38 @@
+# sequential-analysis
+
+> Mathematical sequential inference: statistical tests, confidence sequences,
+> change detection, filtering and forecasting. Import: sequential_analysis.
+
+This is the repository's curated entry point. The existing published
+[docs/llms.txt](docs/llms.txt) and generated site llms-full.txt retain their own
+documentation build flow. This file does not replace either or promise AI
+indexing, recommendations or automatic ingestion.
+
+## Start here
+
+- [Plain-language overview](docs/overview.md): use cases, method selection, inputs/outputs, limits and FAQ.
+- [Обзор на русском](docs/overview.ru.md): назначение, выбор методов, входные данные, результаты, ограничения и частые вопросы.
+- [User guide](docs/guide/index.md): questions explained with runnable examples.
+- [Method selection](docs/choosing.md): choose a method by the statistical question.
+- [FAQ](docs/guide/faq.md): installation, licensing and use.
+
+## Technical sources
+
+- [README](README.md): scope and repository status.
+- [Coding guidance](AGENTS.md) and [contributing](CONTRIBUTING.md): current commands and compatibility.
+- [Version source](src/sequential_analysis/version.py): checkout version; compare with your installed release.
+- [Run reference](docs/reference/run.md): execution and observation delivery.
+- [Method catalogue](docs/methods.md): implemented procedure families.
+- [Checkpoint formats](docs/spec.md): persistence semantics.
+- [TypeScript executor](docs/typescript.md): supported cross-language behavior.
+- [Tests](tests/): independent-reference and behavioral checks.
+
+## Published documentation
+
+- [Documentation site](https://andre-a-no.github.io/sequential-analysis/)
+- [Published llms index](https://andre-a-no.github.io/sequential-analysis/llms.txt)
+- [Generated full documentation](https://andre-a-no.github.io/sequential-analysis/llms-full.txt)
+
+Every statistical guarantee has a method-specific meaning and assumptions.
+Development source, released packages and the deployed site may differ; record
+the revision/version when reporting behavior.

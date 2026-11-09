@@ -11,6 +11,8 @@ The whole documentation in one file, without the API reference: https://andre-a-
 
 ## User guide
 
+- [Plain-language overview](https://andre-a-no.github.io/sequential-analysis/overview/): use cases, inputs/outputs, method selection, guarantees and limits for readers with or without coding experience
+- [Обзор на русском](https://andre-a-no.github.io/sequential-analysis/overview.ru/): назначение библиотеки, выбор методов, входные данные, результаты, гарантии и ограничения простыми словами
 - [Overview](https://andre-a-no.github.io/sequential-analysis/guide/): the library in one paragraph and the questions the guide answers
 - [Why can't I look at a p-value every day?](https://andre-a-no.github.io/sequential-analysis/guide/peeking/): the peeking problem, measured, and the three families of sequential methods
 - [Stop an A/B test early](https://andre-a-no.github.io/sequential-analysis/guide/ab-testing/): TwoProportionTest, BoundedABTest, SampleRatioMismatch, MultipleTests
